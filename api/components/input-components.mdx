@@ -1,0 +1,478 @@
+---
+title: "DevToys Input Components API Reference"
+sidebarTitle: "Input Components"
+description: "API reference for DevToys input components: IUIMultiLineTextInput, IUISingleLineTextInput, IUIDiffTextInput, IUIPasswordInput, IUINumberInput, IUIButton, IUISwitch, IUISelectDropDownList, and IUIFileSelector."
+---
+
+Input components capture user interaction — text entry, toggles, selections, and file picks. All are created through the static `GUI` factory class (namespace `DevToys.Api`) and expose a fluent builder API. Event handlers may be synchronous (`Action`) or asynchronous (`Func<..., ValueTask>`); both overloads are provided for every event.
+
+---
+
+## IUISingleLineTextInput
+
+A single-line text field for displaying or editing plain text. It serves as the base interface for `IUIMultiLineTextInput`, `IUINumberInput`, `IUIPasswordInput`, and `IUIDiffTextInput`.
+
+**Factory:**
+
+```csharp
+public static IUISingleLineTextInput SingleLineTextInput()
+public static IUISingleLineTextInput SingleLineTextInput(string? id)
+```
+
+### Key Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string` | `""` | The current text content. |
+| `IsReadOnly` | `bool` | `false` | When `true`, the user cannot edit the text. |
+| `CanCopyWhenEditable` | `bool` | `false` | Shows the copy button even when the control is editable. |
+| `CommandBarExtraContent` | `IUIElement?` | `null` | Extra element rendered in the command bar above the input. |
+| `HideCommandBar` | `bool` | `false` | Hides the command bar (and `CommandBarExtraContent`) entirely. |
+
+### Key Events
+
+`TextChanged`, `IsReadOnlyChanged`, `CanCopyWhenEditableChanged`, `CommandBarExtraContentChanged`, `HideCommandBarChanged`
+
+### Fluent Methods
+
+```csharp
+T ReadOnly<T>(this T element) where T : IUISingleLineTextInput
+T Editable<T>(this T element) where T : IUISingleLineTextInput
+T CanCopyWhenEditable<T>(this T element) where T : IUISingleLineTextInput
+T CannotCopyWhenEditable<T>(this T element) where T : IUISingleLineTextInput
+T Text<T>(this T element, string text) where T : IUISingleLineTextInput
+T HideCommandBar<T>(this T element) where T : IUISingleLineTextInput
+T ShowCommandBar<T>(this T element) where T : IUISingleLineTextInput
+T CommandBarExtraContent<T>(this T element, IUIElement? extraElement) where T : IUISingleLineTextInput
+T OnTextChanged<T>(this T element, Func<string, ValueTask>) where T : IUISingleLineTextInput
+T OnTextChanged<T>(this T element, Action<string>) where T : IUISingleLineTextInput
+```
+
+### Example
+
+```csharp
+GUI.SingleLineTextInput("url-input")
+   .Text("https://example.com")
+   .OnTextChanged(text => Console.WriteLine($"URL changed: {text}"));
+```
+
+---
+
+## IUIMultiLineTextInput
+
+A multi-line code/text editor powered by Monaco Editor. Inherits all members of `IUISingleLineTextInput` and adds syntax highlighting, line numbers, wrap modes, text span highlighting, and hover tooltips.
+
+**Factory:**
+
+```csharp
+public static IUIMultiLineTextInput MultiLineTextInput()
+public static IUIMultiLineTextInput MultiLineTextInput(string? id)
+public static IUIMultiLineTextInput MultiLineTextInput(string? id, string programmingLanguageName)
+```
+
+### Additional Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `SyntaxColorizationLanguageName` | `string` | `""` | Programming language name for syntax highlighting (e.g. `"json"`, `"xml"`, `"csharp"`). |
+| `IsExtendableToFullScreen` | `bool` | `false` | Whether the editor can expand to fill the entire tool pane. |
+| `WrapMode` | `UITextWrapMode` | `Auto` | Line wrap behaviour: `Auto`, `Wrap`, or `NoWrap`. |
+| `LineNumberMode` | `UITextLineNumber` | `Auto` | Line number display: `Auto`, `Show`, or `Hide`. |
+| `HighlightedSpans` | `IReadOnlyList<UIHighlightedTextSpan>` | empty | Spans of text to highlight with a specific colour. |
+| `HoverTooltips` | `IReadOnlyList<UIHoverTooltip>` | empty | Tooltips shown when the user hovers over a word. |
+| `TextInputToSynchronizeScrollBarWith` | `IUIMultiLineTextInput?` | `null` | Another editor whose scroll position is synchronised with this one. |
+| `Selection` | `TextSpan` | `(0,0)` | The current selection or caret position. |
+
+### Additional Events
+
+`SyntaxColorizationLanguageNameChanged`, `IsExtendableToFullScreenChanged`, `WrapModeChanged`, `LineNumberModeChanged`, `HighlightedSpansChanged`, `HoverTooltipChanged`, `TextInputToSynchronizeScrollBarWithChanged`, `SelectionChanged`
+
+### Additional Fluent Methods
+
+```csharp
+// Language
+IUIMultiLineTextInput Language(this IUIMultiLineTextInput element, string programmingLanguageName)
+
+// Full-screen support
+IUIMultiLineTextInput Extendable(this IUIMultiLineTextInput element)
+IUIMultiLineTextInput NotExtendable(this IUIMultiLineTextInput element)
+
+// Wrap mode
+IUIMultiLineTextInput AutoWrap(this IUIMultiLineTextInput element)
+IUIMultiLineTextInput AlwaysWrap(this IUIMultiLineTextInput element)
+IUIMultiLineTextInput NeverWrap(this IUIMultiLineTextInput element)
+
+// Line numbers
+IUIMultiLineTextInput AutoLineNumber(this IUIMultiLineTextInput element)
+IUIMultiLineTextInput AlwaysShowLineNumber(this IUIMultiLineTextInput element)
+IUIMultiLineTextInput NeverShowLineNumber(this IUIMultiLineTextInput element)
+
+// Highlighting
+IUIMultiLineTextInput Highlight(this IUIMultiLineTextInput element, params UIHighlightedTextSpan[] spans)
+
+// Hover tooltips
+IUIMultiLineTextInput HoverTooltip(this IUIMultiLineTextInput element, params UIHoverTooltip[] tooltips)
+
+// Scroll sync
+IUIMultiLineTextInput SynchronizeScrollBarWith(this IUIMultiLineTextInput element, IUIMultiLineTextInput? otherElement)
+
+// Selection
+IUIMultiLineTextInput Select(this IUIMultiLineTextInput element, TextSpan span)
+IUIMultiLineTextInput Select(this IUIMultiLineTextInput element, int start, int length)
+```
+
+### Example
+
+```csharp
+private readonly IUIMultiLineTextInput _inputEditor
+    = GUI.MultiLineTextInput("json-input", "json")
+         .Extendable()
+         .AlwaysShowLineNumber()
+         .OnTextChanged(OnInputChangedAsync);
+
+private readonly IUIMultiLineTextInput _outputEditor
+    = GUI.MultiLineTextInput("json-output", "json")
+         .ReadOnly()
+         .Extendable();
+```
+
+---
+
+## IUIDiffTextInput
+
+A side-by-side or inline diff view that highlights differences between an original and a modified text. Inherits from `IUISingleLineTextInput`; the base `Text` property maps to `OriginalText`.
+
+**Factory:**
+
+```csharp
+public static IUIDiffTextInput DiffTextInput()
+public static IUIDiffTextInput DiffTextInput(string? id)
+```
+
+### Additional Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `OriginalText` | `string` | `""` | The left-hand (original) text. Same as `IUISingleLineTextInput.Text`. |
+| `ModifiedText` | `string` | `""` | The right-hand (modified) text. |
+| `InlineMode` | `bool` | `false` | When `true`, differences are shown inline instead of side by side. |
+| `IsExtendableToFullScreen` | `bool` | `false` | Whether the control can expand to fill the tool pane. |
+
+### Additional Fluent Methods
+
+```csharp
+T OriginalText<T>(this T element, string text) where T : IUIDiffTextInput
+T ModifiedText<T>(this T element, string text) where T : IUIDiffTextInput
+IUIDiffTextInput InlineView(this IUIDiffTextInput element)
+IUIDiffTextInput SplitView(this IUIDiffTextInput element)
+IUIDiffTextInput Extendable(this IUIDiffTextInput element)
+IUIDiffTextInput NotExtendable(this IUIDiffTextInput element)
+```
+
+### Example
+
+```csharp
+GUI.DiffTextInput("diff-view")
+   .SplitView()
+   .Extendable()
+   .OriginalText("Hello World")
+   .ModifiedText("Hello DevToys");
+```
+
+---
+
+## IUIPasswordInput
+
+A single-line input that masks typed characters. Inherits all members of `IUISingleLineTextInput` with no additional API surface — the masking is applied automatically by the rendering layer.
+
+**Factory:**
+
+```csharp
+public static IUIPasswordInput PasswordInput()
+public static IUIPasswordInput PasswordInput(string? id)
+```
+
+All fluent methods from `IUISingleLineTextInput` (`ReadOnly`, `Text`, `OnTextChanged`, etc.) apply unchanged.
+
+---
+
+## IUINumberInput
+
+A single-line numeric input with optional minimum, maximum, and step constraints. Inherits all members of `IUISingleLineTextInput`; `Value` is derived from the parsed `Text`.
+
+**Factory:**
+
+```csharp
+public static IUINumberInput NumberInput()
+public static IUINumberInput NumberInput(
+    string? id,
+    double min   = int.MinValue,
+    double max   = int.MaxValue,
+    double step  = 1)
+```
+
+### Additional Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Min` | `double` | `int.MinValue` | Minimum allowed value. |
+| `Max` | `double` | `int.MaxValue` | Maximum allowed value. |
+| `Step` | `double` | `1` | Interval between legal values. |
+| `Value` | `double` | (derived) | The parsed numeric value, clamped to `[Min, Max]`. |
+
+### Additional Events
+
+`MinChanged`, `MaxChanged`, `StepChanged`, `ValueChanged`
+
+### Additional Fluent Methods
+
+```csharp
+IUINumberInput Minimum(this IUINumberInput element, double minimum)
+IUINumberInput Maximum(this IUINumberInput element, double maximum)
+IUINumberInput Step(this IUINumberInput element, double step)
+IUINumberInput Value(this IUINumberInput element, double value)
+IUINumberInput OnValueChanged(this IUINumberInput element, Func<double, ValueTask>)
+IUINumberInput OnValueChanged(this IUINumberInput element, Action<double>)
+```
+
+### Example
+
+```csharp
+GUI.NumberInput("indent-size")
+   .Minimum(1)
+   .Maximum(8)
+   .Step(1)
+   .Value(4)
+   .OnValueChanged(size => _indentSize = (int)size);
+```
+
+---
+
+## IUIButton
+
+A clickable button that can display text, an icon, or both. Supports accent, neutral, and hyperlink visual styles.
+
+**Factory:**
+
+```csharp
+public static IUIButton Button()
+public static IUIButton Button(string? id)
+public static IUIButton Button(string? id, string text)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string?` | `null` | Label text displayed on the button. |
+| `IsAccent` | `bool` | `false` | Renders the button in the theme's accent colour. |
+| `IsHyperlink` | `bool` | `false` | Renders the button as a hyperlink. Mutually exclusive with `IsAccent`. |
+| `IconFontName` | `string?` | `null` | Font name for the button's icon glyph. |
+| `IconGlyph` | `char` | `'\0'` | Glyph character in `IconFontName`. |
+| `OnClickAction` | `Func<ValueTask>?` | `null` | Action invoked on click. |
+
+### Events
+
+`TextChanged`, `IsAccentChanged`, `IconFontNameChanged`, `IconGlyphChanged`
+
+### Fluent Methods
+
+```csharp
+IUIButton Text(this IUIButton element, string? text)
+IUIButton AccentAppearance(this IUIButton element)
+IUIButton NeutralAppearance(this IUIButton element)
+IUIButton HyperlinkAppearance(this IUIButton element)
+IUIButton Icon(this IUIButton element, string fontName, char glyph)
+IUIButton OnClick(this IUIButton element, Func<ValueTask>? actionOnClick)
+IUIButton OnClick(this IUIButton element, Action? actionOnClick)
+```
+
+### Example
+
+```csharp
+GUI.Button("convert-btn")
+   .Text("Convert")
+   .AccentAppearance()
+   .OnClick(OnConvertClickedAsync);
+
+GUI.Button("clear-btn")
+   .Text("Clear")
+   .Icon("FluentSystemIcons", '\uE75C')
+   .OnClick(() => _editor.Text(string.Empty));
+```
+
+---
+
+## IUISwitch
+
+A toggle control with on/off state. Displays customisable "On" and "Off" labels (defaults: `"On"` / `"Off"`).
+
+**Factory:**
+
+```csharp
+public static IUISwitch Switch()
+public static IUISwitch Switch(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `IsOn` | `bool` | `false` | Current state of the switch. |
+| `OnText` | `string?` | `"On"` | Label shown when the switch is on. |
+| `OffText` | `string?` | `"Off"` | Label shown when the switch is off. |
+
+### Events
+
+`IsOnChanged`, `OnTextChanged`, `OffTextChanged`
+
+### Fluent Methods
+
+```csharp
+IUISwitch On(this IUISwitch element)
+IUISwitch Off(this IUISwitch element)
+IUISwitch OnText(this IUISwitch element, string? text)
+IUISwitch OffText(this IUISwitch element, string? text)
+IUISwitch OnToggle(this IUISwitch element, Func<bool, ValueTask>? actionOnToggle)
+IUISwitch OnToggle(this IUISwitch element, Action<bool>? actionOnToggle)
+```
+
+The toggle action receives the new `bool` state as its argument.
+
+### Example
+
+```csharp
+GUI.Switch("pretty-print-switch")
+   .OnText("Pretty")
+   .OffText("Minified")
+   .Off()
+   .OnToggle(isOn => _prettyPrint = isOn);
+```
+
+---
+
+## IUISelectDropDownList
+
+A drop-down list from which the user selects one `IUIDropDownListItem`.
+
+**Factory:**
+
+```csharp
+public static IUISelectDropDownList SelectDropDownList()
+public static IUISelectDropDownList SelectDropDownList(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Items` | `IUIDropDownListItem[]?` | `null` | The list of items. |
+| `SelectedItem` | `IUIDropDownListItem?` | `null` | The currently selected item. |
+| `OnItemSelectedAction` | `Func<IUIDropDownListItem?, ValueTask>?` | `null` | Invoked when selection changes. |
+
+### Events
+
+`ItemsChanged`, `SelectedItemChanged`
+
+### Fluent Methods
+
+```csharp
+IUISelectDropDownList WithItems(this IUISelectDropDownList element, params IUIDropDownListItem[] items)
+IUISelectDropDownList Select(this IUISelectDropDownList element, IUIDropDownListItem? item)
+IUISelectDropDownList Select(this IUISelectDropDownList element, int index)
+IUISelectDropDownList OnItemSelected(this IUISelectDropDownList element, Func<IUIDropDownListItem?, ValueTask>?)
+IUISelectDropDownList OnItemSelected(this IUISelectDropDownList element, Action<IUIDropDownListItem?>?)
+```
+
+### IUIDropDownListItem
+
+Items are created with `GUI.Item(...)`:
+
+```csharp
+IUIDropDownListItem Item(object? value)                  // text = value.ToString()
+IUIDropDownListItem Item(string? text, object? value)
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `Text` | `string?` | Label shown in the list. |
+| `Value` | `object?` | Associated data value. |
+
+### Example
+
+```csharp
+private enum OutputFormat { Json, Yaml, Xml }
+
+private readonly IUISelectDropDownList _formatList
+    = GUI.SelectDropDownList("format-list")
+         .WithItems(
+             GUI.Item("JSON", OutputFormat.Json),
+             GUI.Item("YAML", OutputFormat.Yaml),
+             GUI.Item("XML",  OutputFormat.Xml))
+         .Select(0)  // select first item by index
+         .OnItemSelected(item =>
+         {
+             if (item?.Value is OutputFormat fmt)
+                 _outputFormat = fmt;
+         });
+```
+
+---
+
+## IUIFileSelector
+
+A drag-and-drop zone and file picker button. Selected files are exposed as `SandboxedFileReader[]` — a sandboxed stream abstraction for cross-platform file access.
+
+**Factory:**
+
+```csharp
+public static IUIFileSelector FileSelector()
+public static IUIFileSelector FileSelector(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `SelectedFiles` | `SandboxedFileReader[]` | empty | Files currently selected. |
+| `CanSelectManyFiles` | `bool` | `false` | Allows multi-file selection when `true`. |
+| `AllowedFileExtensions` | `string[]` | empty (all) | Extensions the file picker will accept. Empty means any file type. |
+| `OnFilesSelectedAction` | `Func<SandboxedFileReader[], ValueTask>?` | `null` | Invoked when files are selected. |
+
+### Events
+
+`CanSelectManyFilesChanged`, `AllowedFileExtensionsChanged`
+
+### Fluent Methods
+
+```csharp
+IUIFileSelector CanSelectOneFile(this IUIFileSelector element)
+IUIFileSelector CanSelectManyFiles(this IUIFileSelector element)
+IUIFileSelector LimitFileTypesTo(this IUIFileSelector element, params string[] fileExtensions)
+IUIFileSelector LimitFileTypesToImages(this IUIFileSelector element)
+IUIFileSelector WithFiles(this IUIFileSelector element, params SandboxedFileReader[] files)
+IUIFileSelector OnFilesSelected(this IUIFileSelector element, Func<SandboxedFileReader[], ValueTask>?)
+IUIFileSelector OnFilesSelected(this IUIFileSelector element, Action<SandboxedFileReader[]>?)
+```
+
+### Example
+
+```csharp
+GUI.FileSelector("image-picker")
+   .CanSelectOneFile()
+   .LimitFileTypesToImages()
+   .OnFilesSelected(async files =>
+   {
+       foreach (SandboxedFileReader file in files)
+       {
+           using Stream stream = await file.GetNewAccessToFileContentAsync(CancellationToken.None);
+           // process stream...
+           // Remember to dispose the SandboxedFileReader when done:
+           file.Dispose();
+       }
+   });
+```
+
+<Note>
+  `SandboxedFileReader` contains a stream that is **not** disposed automatically. Always call `Dispose()` on each reader once you have finished reading the file, to avoid resource leaks.
+</Note>

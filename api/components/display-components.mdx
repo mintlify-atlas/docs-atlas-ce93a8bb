@@ -1,0 +1,494 @@
+---
+title: "DevToys Display Components API Reference"
+sidebarTitle: "Display Components"
+description: "API reference for DevToys display components: IUILabel, IUIInfoBar, IUIImageViewer, IUIDataGrid, IUIList, IUIProgressBar, IUIProgressRing, and IUIIcon."
+---
+
+Display components present information to the user without accepting direct text input. They range from simple labels and icons to full data grids, image viewers, and progress indicators. All are created through the static `GUI` factory class (namespace `DevToys.Api`) and expose a fluent builder API.
+
+---
+
+## IUILabel
+
+A text display component that renders a string in one of several typographic styles.
+
+**Factory:**
+
+```csharp
+public static IUILabel Label()
+public static IUILabel Label(string? id)
+public static IUILabel Label(string? id, string text)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string?` | `null` | The text to display. |
+| `Style` | `UILabelStyle` | `Body` | The typographic style applied to the text. |
+| `AutoWrap` | `bool` | `true` | When `true`, text wraps to the next line when it cannot fit horizontally. |
+
+### Events
+
+`TextChanged`, `StyleChanged`, `AutoWrapChanged`
+
+### Fluent Methods
+
+```csharp
+IUILabel Text(this IUILabel element, string? text)
+IUILabel Style(this IUILabel element, UILabelStyle style)
+IUILabel WrapIfNeeded(this IUILabel element)   // AutoWrap = true
+IUILabel NeverWrap(this IUILabel element)      // AutoWrap = false
+```
+
+### UILabelStyle Enum
+
+| Value | Description |
+|---|---|
+| `Caption` | Smallest style — fine print, helper text |
+| `Body` | Default body text (default) |
+| `BodyStrong` | Bold body text |
+| `BodyLarge` | Larger body text |
+| `Subtitle` | Section subtitle |
+| `Title` | Page/section title |
+| `TitleLarge` | Large page title |
+| `Display` | Hero / display text |
+
+### Example
+
+```csharp
+GUI.Label("section-header")
+   .Text("Output")
+   .Style(UILabelStyle.Subtitle)
+   .WrapIfNeeded();
+```
+
+---
+
+## IUIInfoBar
+
+A dismissible notification banner used to surface status messages, errors, warnings, or success confirmations. The bar is hidden by default and must be opened explicitly.
+
+**Factory:**
+
+```csharp
+public static IUIInfoBar InfoBar()
+public static IUIInfoBar InfoBar(string? id)
+public static IUIInfoBar InfoBar(string? id, string title)
+public static IUIInfoBar InfoBar(string? id, string title, string description)
+public static IUIInfoBar InfoBar(string? id, string title, string description, UIInfoBarSeverity severity)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `IsOpened` | `bool` | `false` | Whether the bar is currently visible. |
+| `IsClosable` | `bool` | `true` | Whether the user can close the bar with its close button. |
+| `IsIconVisible` | `bool` | `true` | Whether the severity icon is shown. |
+| `Title` | `string?` | `null` | Bold title text. |
+| `Description` | `string?` | `null` | Body text beneath the title. |
+| `Severity` | `UIInfoBarSeverity` | `Informational` | Determines the icon and colour scheme. |
+| `ActionButtonText` | `string?` | `null` | Optional button label. The bar closes when clicked. Hidden if null or empty. |
+| `IsActionButtonAccent` | `bool` | `false` | Renders the action button in accent style. |
+| `OnCloseAction` | `Func<ValueTask>?` | `null` | Invoked when the user explicitly closes the bar. |
+| `OnActionButtonClick` | `Func<ValueTask>?` | `null` | Invoked when the action button is clicked. |
+
+### Events
+
+`IsOpenedChanged`, `IsClosableChanged`, `IsIconVisibleChanged`, `TitleChanged`, `DescriptionChanged`, `SeverityChanged`, `ActionButtonTextChanged`, `IsActionButtonAccentChanged`, `OnCloseActionChanged`, `OnActionButtonClickChanged`
+
+### Fluent Methods
+
+```csharp
+// Severity
+IUIInfoBar Informational(this IUIInfoBar element)
+IUIInfoBar Success(this IUIInfoBar element)
+IUIInfoBar Warning(this IUIInfoBar element)
+IUIInfoBar Error(this IUIInfoBar element)
+
+// Content
+IUIInfoBar Title(this IUIInfoBar element, string? title)
+IUIInfoBar Description(this IUIInfoBar element, string? description)
+IUIInfoBar WithActionButton(this IUIInfoBar element, string text, bool isAccent, Func<ValueTask> actionOnClick)
+IUIInfoBar WithActionButton(this IUIInfoBar element, string text, bool isAccent, Action actionOnClick)
+
+// Visibility
+IUIInfoBar Open(this IUIInfoBar element)
+IUIInfoBar Close(this IUIInfoBar element)
+IUIInfoBar Closable(this IUIInfoBar element)
+IUIInfoBar NonClosable(this IUIInfoBar element)
+IUIInfoBar ShowIcon(this IUIInfoBar element)
+IUIInfoBar HideIcon(this IUIInfoBar element)
+
+// Close callback
+IUIInfoBar OnClose(this IUIInfoBar element, Func<ValueTask>? actionOnClose)
+IUIInfoBar OnClose(this IUIInfoBar element, Action? actionOnClose)
+```
+
+### UIInfoBarSeverity Enum
+
+| Value | Icon | Colour |
+|---|---|---|
+| `Informational` | ℹ information | Neutral |
+| `Success` | ✓ check | Green |
+| `Warning` | ⚠ warning | Yellow |
+| `Error` | ✗ error | Red |
+
+### Example
+
+```csharp
+private readonly IUIInfoBar _errorBar
+    = GUI.InfoBar("error-bar")
+         .Error()
+         .Title("Conversion failed")
+         .NonClosable();
+
+// Later, when an error occurs:
+_errorBar.Description(ex.Message).Open();
+
+// And when the input is cleared:
+_errorBar.Close();
+```
+
+---
+
+## IUIImageViewer
+
+Displays an image with built-in zoom, pan, and save-as functionality. Supports `FileInfo`, `Image` (ImageSharp), and `SandboxedFileReader` sources. By default the viewer handles BMP, GIF, JPEG, PBM, PNG, TIFF, TGA, WEBP, and SVG formats.
+
+**Factory:**
+
+```csharp
+public static IUIImageViewer ImageViewer()
+public static IUIImageViewer ImageViewer(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `ImageSource` | `OneOf<FileInfo, Image, SandboxedFileReader>?` | `null` | The current image source. |
+| `CustomActionPerFileExtensionOnSaving` | `IReadOnlyDictionary<string, Func<FileStream, ValueTask>>` | empty | Custom save handlers per file extension. |
+
+### Events
+
+`ImageSourceChanged`, `CustomActionPerFileExtensionOnSavingChanged`
+
+### Fluent Methods
+
+```csharp
+// Set image source
+IUIImageViewer WithFile(this IUIImageViewer element, FileInfo imageFile)
+IUIImageViewer WithPickedFile(this IUIImageViewer element, SandboxedFileReader pickedFile, bool disposeAutomatically)
+IUIImageViewer WithImage(this IUIImageViewer element, Image image, bool disposeAutomatically)
+
+// Clear
+IUIImageViewer Clear(this IUIImageViewer element)
+
+// Custom save handlers
+IUIImageViewer ManuallyHandleSaveAs(this IUIImageViewer element, string fileExtension, Func<FileStream, ValueTask> action)
+IUIImageViewer RemoveManuallyHandleSaveAs(this IUIImageViewer element, string fileExtension)
+```
+
+### Example
+
+```csharp
+private readonly IUIImageViewer _viewer = GUI.ImageViewer("result-image");
+
+// Display an ImageSharp Image object:
+_viewer.WithImage(myImage, disposeAutomatically: true);
+
+// Display a file picked by the user:
+_viewer.WithPickedFile(selectedFile, disposeAutomatically: true);
+```
+
+<Note>
+  When `disposeAutomatically: true`, the viewer disposes the image or `SandboxedFileReader` when a new source is set or when the viewer itself is disposed. Set `disposeAutomatically: false` if you manage the lifecycle externally.
+</Note>
+
+---
+
+## IUIDataGrid
+
+A tabular data display with named columns, observable rows, and optional row selection. Rows and cells are created with `GUI.Row(...)` and `GUI.Cell(...)`.
+
+**Factory:**
+
+```csharp
+public static IUIDataGrid DataGrid()
+public static IUIDataGrid DataGrid(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Columns` | `string[]` | empty | Column header names. |
+| `Rows` | `ObservableCollection<IUIDataGridRow>` | empty | Observable collection of rows. |
+| `CanSelectRow` | `bool` | `true` | Whether rows can be selected by the user. |
+| `SelectedRow` | `IUIDataGridRow?` | `null` | The currently selected row. |
+| `IsExtendableToFullScreen` | `bool` | `false` | Whether the grid can expand to fill the tool pane. |
+| `CommandBarExtraContent` | `IUIElement?` | `null` | Extra element in the grid's command bar. |
+| `OnRowSelectedAction` | `Func<IUIDataGridRow?, ValueTask>?` | `null` | Invoked when row selection changes. |
+
+### Events
+
+`CanSelectRowChanged`, `SelectedRowChanged`, `IsExtendableToFullScreenChanged`, `CommandBarExtraContentChanged`
+
+### Fluent Methods
+
+```csharp
+IUIDataGrid WithColumns(this IUIDataGrid element, params string[] columns)
+IUIDataGrid WithRows(this IUIDataGrid element, params IUIDataGridRow[] rows)
+IUIDataGrid Select(this IUIDataGrid element, IUIDataGridRow? row)
+IUIDataGrid Select(this IUIDataGrid element, int index)
+IUIDataGrid AllowSelectItem(this IUIDataGrid element)
+IUIDataGrid ForbidSelectItem(this IUIDataGrid element)
+IUIDataGrid Extendable(this IUIDataGrid element)
+IUIDataGrid NotExtendable(this IUIDataGrid element)
+IUIDataGrid CommandBarExtraContent(this IUIDataGrid element, IUIElement? extraElement)
+IUIDataGrid OnRowSelected(this IUIDataGrid element, Func<IUIDataGridRow?, ValueTask>?)
+IUIDataGrid OnRowSelected(this IUIDataGrid element, Action<IUIDataGridRow?>?)
+```
+
+### IUIDataGridRow and IUIDataGridCell
+
+```csharp
+// Create a row with cell elements
+IUIDataGridRow Row(object? value, params IUIDataGridCell[] cells)
+
+// Create a row with plain string cells (auto-wrapped in labels)
+IUIDataGridRow Row(object? value, params string[] cells)
+
+// Create a row with a detail element (shown on expansion)
+IUIDataGridRow Row(object? value, IUIElement? details, params IUIDataGridCell[] cells)
+IUIDataGridRow Row(object? value, IUIElement? details, params string[] cells)
+
+// Create a cell from a string
+IUIDataGridCell Cell(string? text)
+
+// Create a cell from any IUIElement
+IUIDataGridCell Cell(IUIElement uiElement)
+```
+
+`IUIDataGridRow.Value` holds the associated data object for the row.
+
+### Example
+
+```csharp
+GUI.DataGrid("hash-results")
+   .WithColumns("Algorithm", "Hash", "Length")
+   .Extendable()
+   .OnRowSelected(row =>
+   {
+       if (row?.Value is HashResult result)
+           _selectedHash = result;
+   })
+   .WithRows(
+       GUI.Row(md5Result,    "MD5",    md5Hash,    md5Hash.Length.ToString()),
+       GUI.Row(sha1Result,   "SHA-1",  sha1Hash,   sha1Hash.Length.ToString()),
+       GUI.Row(sha256Result, "SHA-256",sha256Hash, sha256Hash.Length.ToString()));
+```
+
+---
+
+## IUIList
+
+A simple scrollable list of `IUIListItem` entries. Each item wraps an `IUIElement` for display and an optional associated value object.
+
+**Factory:**
+
+```csharp
+public static IUIList List()
+public static IUIList List(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Items` | `ObservableCollection<IUIListItem>` | empty | Observable collection of list items. |
+| `CanSelectItem` | `bool` | `true` | Whether items can be selected. |
+| `SelectedItem` | `IUIListItem?` | `null` | The currently selected item. |
+| `OnItemSelectedAction` | `Func<IUIListItem?, ValueTask>?` | `null` | Invoked when selection changes. |
+
+### Events
+
+`CanSelectItemChanged`, `SelectedItemChanged`
+
+### Fluent Methods
+
+```csharp
+IUIList WithItems(this IUIList element, params IUIListItem[] items)
+IUIList Select(this IUIList element, IUIListItem? item)
+IUIList Select(this IUIList element, int index)
+IUIList AllowSelectItem(this IUIList element)
+IUIList ForbidSelectItem(this IUIList element)
+IUIList OnItemSelected(this IUIList element, Func<IUIListItem?, ValueTask>?)
+IUIList OnItemSelected(this IUIList element, Action<IUIListItem?>?)
+
+// Helper on ObservableCollection<IUIListItem>:
+void RemoveValue(this ObservableCollection<IUIListItem> listItems, object? value)
+```
+
+### IUIListItem
+
+```csharp
+IUIListItem Item(IUIElement uiElement, object? value)
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `UIElement` | `IUIElement` | The element rendered for this item. |
+| `Value` | `object?` | The data value associated with the item. |
+
+### Example
+
+```csharp
+GUI.List("results-list")
+   .OnItemSelected(item =>
+   {
+       if (item?.Value is SearchResult result)
+           ShowDetails(result);
+   })
+   .WithItems(
+       GUI.Item(GUI.Label(null, "First result"),  firstResult),
+       GUI.Item(GUI.Label(null, "Second result"), secondResult));
+```
+
+---
+
+## IUIProgressBar
+
+A horizontal progress bar indicating operation progress. Supports both determinate (percentage-based) and indeterminate (continuous animation) modes.
+
+**Factory:**
+
+```csharp
+public static IUIProgressBar ProgressBar()
+public static IUIProgressBar ProgressBar(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Value` | `double` | `0` | Progress percentage, from `0` to `100`. |
+| `IsIndeterminate` | `bool` | `false` | Shows continuous animation when `true`. |
+
+### Events
+
+`ValueChanged`, `ValueChangingAsynchronously`, `IsIndeterminateChanged`
+
+### Fluent Methods
+
+```csharp
+// Synchronous update (use on UI thread)
+T Progress<T>(this T element, double percentage) where T : IUIProgressBar
+
+// Asynchronous throttled update (use off UI thread)
+ValueTask ProgressAsync<T>(this T element, double percentage) where T : IUIProgressBar
+
+// Indeterminate mode
+T StartIndeterminateProgress<T>(this T element) where T : IUIProgressBar
+T StopIndeterminateProgress<T>(this T element) where T : IUIProgressBar
+```
+
+`Progress(double)` accepts values between `0` and `100` inclusive.
+
+### Example
+
+```csharp
+private readonly IUIProgressBar _progressBar
+    = GUI.ProgressBar("convert-progress");
+
+// During a long operation (off UI thread):
+for (int i = 0; i < files.Length; i++)
+{
+    await ProcessFileAsync(files[i]);
+    await _progressBar.ProgressAsync((i + 1.0) / files.Length * 100);
+}
+
+// Or use indeterminate mode when duration is unknown:
+_progressBar.StartIndeterminateProgress();
+await DoWorkAsync();
+_progressBar.StopIndeterminateProgress();
+```
+
+<Tip>
+  Use `ProgressAsync` when updating the progress bar from a background thread. It is throttled to avoid overwhelming the UI thread. Use `Progress` only when already on the UI thread.
+</Tip>
+
+---
+
+## IUIProgressRing
+
+A circular spinner indicating progress. Inherits all members of `IUIProgressBar` — including `Value`, `IsIndeterminate`, `Progress(...)`, `ProgressAsync(...)`, `StartIndeterminateProgress()`, and `StopIndeterminateProgress()`. The visual difference is that a ring is rendered instead of a bar.
+
+**Factory:**
+
+```csharp
+public static IUIProgressRing ProgressRing()
+public static IUIProgressRing ProgressRing(string? id)
+```
+
+### Example
+
+```csharp
+private readonly IUIProgressRing _spinner
+    = GUI.ProgressRing("load-spinner");
+
+// Show a spinner during async work:
+_spinner.StartIndeterminateProgress();
+await LoadDataAsync();
+_spinner.StopIndeterminateProgress();
+```
+
+---
+
+## IUIIcon
+
+Renders a single glyph from a registered icon font. Useful for decorating labels, cards, or any layout position that calls for a standalone icon.
+
+**Factory:**
+
+```csharp
+public static IUIIcon Icon(string fontName, char glyph)
+public static IUIIcon Icon(string? id, string fontName, char glyph)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `FontName` | `string` | (required) | The registered font name containing the glyph. |
+| `Glyph` | `char` | (required) | The Unicode character within `FontName`. |
+| `Size` | `int` | `16` | Icon size in device-independent pixels. |
+
+### Events
+
+`FontNameChanged`, `GlyphChanged`, `SizeChanged`
+
+### Fluent Methods
+
+```csharp
+IUIIcon FontName(this IUIIcon element, string fontName)
+IUIIcon Glyph(this IUIIcon element, char glyph)
+IUIIcon Size(this IUIIcon element, int size)
+```
+
+### Example
+
+```csharp
+GUI.Icon("FluentSystemIcons", '\uE8A5')
+   .Size(24);
+
+// Inside a stack with a label to create a labelled icon:
+GUI.Stack()
+   .Horizontal()
+   .SmallSpacing()
+   .WithChildren(
+       GUI.Icon("FluentSystemIcons", '\uE8A5').Size(20),
+       GUI.Label(null, "Encode").Style(UILabelStyle.BodyStrong));
+```

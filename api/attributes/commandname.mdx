@@ -1,0 +1,152 @@
+---
+title: "CommandNameAttribute and CommandLineOptionAttribute Reference"
+sidebarTitle: "CommandName"
+description: "CommandNameAttribute declares the CLI command name and alias for ICommandLineTool. CommandLineOptionAttribute defines individual options with name, alias, and IsRequired flag."
+---
+
+DevToys exposes a command-line interface alongside its GUI. Two attributes — `CommandNameAttribute` and `CommandLineOptionAttribute` — wire up an `ICommandLineTool` implementation to that CLI surface. `CommandNameAttribute` defines the top-level command (e.g. `devtoys base64`), while `CommandLineOptionAttribute` is applied to properties to declare individual `--option` flags.
+
+---
+
+## CommandNameAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `false`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public class CommandNameAttribute : Attribute
+```
+
+Every `ICommandLineTool` class must carry exactly one `[CommandName]` attribute declaring the primary command word and its description resources.
+
+### Properties
+
+<ParamField path="Name" type="string" required>
+  The primary command name as it will be typed by users on the command line. For example, setting `Name = "base64"` makes the command available as `devtoys base64 ...`.
+
+  The value must be non-null and non-empty. By convention, use lowercase kebab-case for multi-word names (e.g. `"jwt-decode"`).
+</ParamField>
+
+<ParamField path="Alias" type="string">
+  An optional short alias for the command. For example, `Alias = "b64"` allows `devtoys b64 ...` as a shorthand. Must be non-null and non-empty if set.
+</ParamField>
+
+<ParamField path="DescriptionResourceName" type="string" required>
+  The resource key (within `ResourceManagerBaseName`) whose value is the human-readable description of the command, shown in `--help` output.
+</ParamField>
+
+<ParamField path="ResourceManagerBaseName" type="string" required>
+  The fully qualified base name of the .NET resource manager used to look up `DescriptionResourceName`. For example, `"MyExtension.Strings.Base64Strings"`.
+</ParamField>
+
+---
+
+## CommandLineOptionAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Property`  
+**AllowMultiple:** `false`  
+**Inherits from:** `CommandNameAttribute`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+public sealed class CommandLineOptionAttribute : CommandNameAttribute
+```
+
+Apply `[CommandLineOption]` to a property on your `ICommandLineTool` class to declare a CLI option. DevToys uses MEF metadata to read the attribute and bind option values to properties before invoking `InvokeAsync`.
+
+### Properties
+
+<ParamField path="Name" type="string" required>
+  The name of the option, used as `--name <value>` on the command line. For example, `Name = "file"` produces `--file <value>`.
+</ParamField>
+
+<ParamField path="Alias" type="string">
+  A single-character (or short) alias, used as `-alias <value>`. For example, `Alias = "f"` produces `-f <value>`.
+</ParamField>
+
+<ParamField path="IsRequired" type="bool" default="false">
+  When `true`, the CLI will report an error if the user does not supply this option. Defaults to `false`.
+</ParamField>
+
+<ParamField path="DescriptionResourceName" type="string" required>
+  The resource key whose value is the option description displayed in `--help` output.
+</ParamField>
+
+<ParamField path="ResourceManagerBaseName" type="string" required>
+  The base name of the resource manager for resolving `DescriptionResourceName`. Inherited from `CommandNameAttribute`.
+</ParamField>
+
+---
+
+## Full Usage Example
+
+The following example shows a Base64 encoding CLI tool with two options: a required `--input` string and an optional `--encode` flag.
+
+```csharp
+using DevToys.Api;
+using System.ComponentModel.Composition;
+
+[Export(typeof(ICommandLineTool))]
+[Name("Base64EncoderCli")]
+[CommandName(
+    Name                   = "base64",
+    Alias                  = "b64",
+    ResourceManagerBaseName    = "MyExtension.Strings.Base64Strings",
+    DescriptionResourceName    = nameof(Base64Strings.CommandDescription))]
+public sealed class Base64CommandLineTool : ICommandLineTool
+{
+    [CommandLineOption(
+        Name                    = "input",
+        Alias                   = "i",
+        IsRequired              = true,
+        ResourceManagerBaseName = "MyExtension.Strings.Base64Strings",
+        DescriptionResourceName = nameof(Base64Strings.InputOptionDescription))]
+    public string? Input { get; set; }
+
+    [CommandLineOption(
+        Name                    = "encode",
+        Alias                   = "e",
+        IsRequired              = false,
+        ResourceManagerBaseName = "MyExtension.Strings.Base64Strings",
+        DescriptionResourceName = nameof(Base64Strings.EncodeOptionDescription))]
+    public bool Encode { get; set; } = true;
+
+    public async ValueTask<int> InvokeAsync(
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(Input))
+        {
+            logger.LogError("Input is required.");
+            return -1;
+        }
+
+        string result = Encode
+            ? Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(Input))
+            : System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(Input));
+
+        Console.WriteLine(result);
+        return 0;
+    }
+}
+```
+
+The above registers the following CLI surface:
+
+```
+devtoys base64 --input <value> [--encode]
+devtoys b64    -i <value>      [-e]
+```
+
+<Note>
+  `CommandLineOptionAttribute` extends `CommandNameAttribute`, so `DescriptionResourceName` and `ResourceManagerBaseName` are inherited and must still be set on each option attribute.
+</Note>
+
+<Tip>
+  Return `0` from `InvokeAsync` for success and a non-zero value on failure. The DevToys CLI forwards the exit code to the shell.
+</Tip>

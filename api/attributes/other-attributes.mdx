@@ -1,0 +1,278 @@
+---
+title: "DevToys Extension Attributes: Name, TargetPlatform, Order, MenuPlacement"
+sidebarTitle: "Other Attributes"
+description: "Reference for NameAttribute, TargetPlatformAttribute, OrderAttribute, MenuPlacementAttribute, and opt-out flags like NotSearchable used in DevToys extensions."
+---
+
+Beyond `[ToolDisplayInformation]` and the CLI/detection attributes, the DevToys SDK provides several smaller attributes that control naming, platform targeting, sort ordering, navigation placement, and feature opt-outs. Each is documented below with its constructor signature, properties, and a usage snippet.
+
+---
+
+## NameAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `false`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class NameAttribute : Attribute
+```
+
+`[Name]` assigns a stable internal identifier to any exported component. It is **required** on every type that participates in DevToys' MEF composition:
+
+- `IGuiTool` implementations
+- `ICommandLineTool` implementations
+- `IDataTypeDetector` implementations
+- `IResourceAssemblyIdentifier` implementations
+- `GuiToolGroup` definitions
+
+The `InternalComponentName` value must be **globally unique** within the application. It is referenced by `[Order]` (for relative sorting) and, on `IResourceAssemblyIdentifier`, by `ToolDisplayInformationAttribute.ResourceManagerAssemblyIdentifier`.
+
+### Constructor
+
+```csharp
+public NameAttribute(string internalComponentName)
+```
+
+<ParamField path="internalComponentName" type="string" required>
+  The stable unique identifier for this component. Must be non-empty. By convention, use PascalCase and include a descriptive suffix (e.g. `"JsonFormatterTool"`, `"Base64EncoderDetector"`).
+</ParamField>
+
+### Example
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("JsonFormatterTool")]
+[ToolDisplayInformation(/* ... */)]
+public sealed class JsonFormatterTool : IGuiTool { /* ... */ }
+```
+
+---
+
+## TargetPlatformAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `true`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+public sealed class TargetPlatformAttribute : Attribute
+```
+
+Restricts a component to one or more specific operating systems. DevToys will not load a component on platforms it does not target. **Omit this attribute entirely to target all platforms.**
+
+Because `AllowMultiple = true`, you can stack multiple `[TargetPlatform]` attributes to support a subset of platforms.
+
+### Constructor
+
+```csharp
+public TargetPlatformAttribute(Platform platform)
+```
+
+<ParamField path="platform" type="Platform" required>
+  One of the `Platform` enum values:
+
+  | Value | Description |
+  |---|---|
+  | `Platform.Windows` | Windows desktop |
+  | `Platform.MacOS` | macOS / Mac Catalyst |
+  | `Platform.Linux` | Linux desktop |
+</ParamField>
+
+### Examples
+
+```csharp
+// Windows-only tool
+[Export(typeof(IGuiTool))]
+[Name("WindowsRegistryTool")]
+[TargetPlatform(Platform.Windows)]
+[ToolDisplayInformation(/* ... */)]
+public sealed class WindowsRegistryTool : IGuiTool { /* ... */ }
+
+// Available on macOS and Linux, but not Windows
+[Export(typeof(IGuiTool))]
+[Name("UnixPermissionsTool")]
+[TargetPlatform(Platform.MacOS)]
+[TargetPlatform(Platform.Linux)]
+[ToolDisplayInformation(/* ... */)]
+public sealed class UnixPermissionsTool : IGuiTool { /* ... */ }
+```
+
+---
+
+## OrderAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `true`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+public sealed class OrderAttribute : Attribute
+```
+
+Controls the relative sort position of a component within its group or the sidebar list. Each `[Order]` attribute establishes a single ordering constraint relative to another component identified by its `[Name]`. Multiple constraints may be applied by stacking attributes.
+
+### Properties
+
+<ParamField path="Before" type="string">
+  The `InternalComponentName` of a component that this component should appear **before**. Must be non-null and non-empty when set.
+</ParamField>
+
+<ParamField path="After" type="string">
+  The `InternalComponentName` of a component that this component should appear **after**. Must be non-null and non-empty when set.
+</ParamField>
+
+Both `Before` and `After` may be set on the same attribute instance to express a constraint like "comes after X but before Y."
+
+### Example
+
+```csharp
+// This tool appears after JsonFormatterTool and before XmlFormatterTool
+[Export(typeof(IGuiTool))]
+[Name("YamlFormatterTool")]
+[Order(After = "JsonFormatterTool", Before = "XmlFormatterTool")]
+[ToolDisplayInformation(/* ... */)]
+public sealed class YamlFormatterTool : IGuiTool { /* ... */ }
+```
+
+<Note>
+  Ordering is advisory. If conflicting constraints cannot all be satisfied, DevToys resolves them on a best-effort basis.
+</Note>
+
+---
+
+## MenuPlacementAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `false`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class MenuPlacementAttribute : Attribute
+```
+
+Specifies where in the navigation view a tool's menu entry should appear. By default (when the attribute is absent), tools appear in the **Body** of the navigation — the main scrollable list of tools. Setting `MenuPlacement.Footer` places the entry in the footer area, which DevToys reserves for utility items like **Settings** and the **Extensions Manager**.
+
+### Constructor
+
+```csharp
+public MenuPlacementAttribute(MenuPlacement menuPlacement)
+```
+
+<ParamField path="menuPlacement" type="MenuPlacement" required>
+  | Value | Description |
+  |---|---|
+  | `MenuPlacement.Body` | Default. Tool appears in the main navigation list. |
+  | `MenuPlacement.Footer` | Tool appears in the navigation footer (Settings-style). |
+</ParamField>
+
+### Example
+
+```csharp
+// A settings-like utility placed in the navigation footer
+[Export(typeof(IGuiTool))]
+[Name("MyExtensionSettings")]
+[MenuPlacement(MenuPlacement.Footer)]
+[ToolDisplayInformation(/* ... */)]
+public sealed class MyExtensionSettingsTool : IGuiTool { /* ... */ }
+```
+
+---
+
+## Opt-out Flags
+
+The following marker attributes have no properties. Each suppresses a specific DevToys feature for the decorated tool.
+
+### `[NotSearchable]`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class NotSearchableAttribute : Attribute
+```
+
+When present, the tool is excluded from DevToys' search results. The tool remains accessible from the sidebar but will not appear when users type in the search bar. Useful for utility or settings-like tools that should not be discoverable via search.
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("HiddenUtilityTool")]
+[NotSearchable]
+[ToolDisplayInformation(/* ... */)]
+public sealed class HiddenUtilityTool : IGuiTool { /* ... */ }
+```
+
+---
+
+### `[NotFavorable]`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class NotFavorableAttribute : Attribute
+```
+
+When present, users cannot add the tool to their Favorites list. Appropriate for tools that should not clutter the Favorites section, such as one-off utilities or system tools.
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("EphemeralTool")]
+[NotFavorable]
+[ToolDisplayInformation(/* ... */)]
+public sealed class EphemeralTool : IGuiTool { /* ... */ }
+```
+
+---
+
+### `[NoCompactOverlaySupport]`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class NoCompactOverlaySupportAttribute : Attribute
+```
+
+When present, the tool cannot be displayed in DevToys' **Compact Overlay** (mini picture-in-picture) window mode. Use this for tools whose UI requires a minimum size that is incompatible with the compact window dimensions.
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("FullscreenOnlyTool")]
+[NoCompactOverlaySupport]
+[ToolDisplayInformation(/* ... */)]
+public sealed class FullscreenOnlyTool : IGuiTool { /* ... */ }
+```
+
+---
+
+## Complete Attribute Combination Example
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("CsvFormatterTool")]
+[ToolDisplayInformation(
+    GroupName                         = PredefinedCommonToolGroupNames.Formatters,
+    ResourceManagerAssemblyIdentifier = "MyExtension",
+    ResourceManagerBaseName           = "MyExtension.Strings.CsvStrings",
+    ShortDisplayTitleResourceName     = nameof(CsvStrings.ShortTitle),
+    LongDisplayTitleResourceName      = nameof(CsvStrings.LongTitle),
+    DescriptionResourceName           = nameof(CsvStrings.Description),
+    IconGlyph                         = '\uE8A5',
+    IconFontName                      = "FluentSystemIcons")]
+[TargetPlatform(Platform.Windows)]
+[TargetPlatform(Platform.MacOS)]
+[Order(After = "JsonFormatterTool")]
+[NotFavorable]
+[NoCompactOverlaySupport]
+public sealed class CsvFormatterTool : IGuiTool
+{
+    public UIToolView View => new UIToolView();
+    public void OnDataReceived(string dataTypeName, object? parsedData) { }
+}
+```

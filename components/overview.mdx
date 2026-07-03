@@ -1,0 +1,76 @@
+---
+title: "DevToys GUI Components: Building Tool UIs with the API"
+sidebarTitle: "Overview"
+description: "Every DevToys tool UI is built from IUIElement components. Use the GUI.* static factory methods to compose layouts, inputs, labels, and interactive controls."
+---
+
+Every DevToys extension tool that exposes a GUI returns a `UIToolView` from its `View` property. That view contains a tree of `IUIElement` objects that DevToys renders natively on each supported platform. The entire component library is accessible through the static `GUI` class in the `DevToys.Api` namespace — a fluent API of factory methods and chainable extension methods that compose a fully-declarative, reactive UI without any XAML or markup files.
+
+## How the component model works
+
+A `UIToolView` is the root container for a tool's UI. It wraps a single `IUIElement` as its `RootElement` and optionally controls whether the view is scrollable. All layout, input, and display components implement `IUIElement`, so they can be nested arbitrarily.
+
+<Note>
+The UI is **reactive by default**. Every property on every component raises a `*Changed` event when updated. DevToys listens to these events and synchronises the live UI automatically. There is no explicit "notify the view" step — just update the property and the screen follows.
+</Note>
+
+## The base interface: IUIElement
+
+All components share a common base interface:
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Id` | `string?` | `null` | Optional identifier; useful for finding an element with `UIToolView.GetChildElementById`. |
+| `IsVisible` | `bool` | `true` | Hides or shows the element. |
+| `IsEnabled` | `bool` | `true` | Disables the element and all of its children. |
+| `HorizontalAlignment` | `UIHorizontalAlignment` | `Stretch` | How the element aligns horizontally within its parent. |
+| `VerticalAlignment` | `UIVerticalAlignment` | `Stretch` | How the element aligns vertically within its parent. |
+
+The corresponding fluent methods are available on every `IUIElement`: `.Hide()`, `.Show()`, `.Disable()`, `.Enable()`, `.AlignHorizontally(...)`, and `.AlignVertically(...)`.
+
+## Minimal UIToolView example
+
+The snippet below shows the smallest meaningful tool UI: a vertical stack containing a subtitle label and an accent button.
+
+```csharp
+using DevToys.Api;
+using static DevToys.Api.GUI;
+
+public UIToolView View
+    => new UIToolView(
+        isScrollable: true,
+        Stack()
+            .Vertical()
+            .MediumSpacing()
+            .WithChildren(
+                Label()
+                    .Text("Enter a value to convert:")
+                    .Style(UILabelStyle.Subtitle),
+                Button()
+                    .Text("Convert")
+                    .AccentAppearance()
+                    .OnClick(OnConvertClicked)));
+```
+
+<Tip>
+Import `using static DevToys.Api.GUI;` to call factory methods like `Stack()`, `Label()`, and `Button()` without a class prefix.
+</Tip>
+
+## Component categories
+
+DevToys components are organised into four groups:
+
+<CardGroup cols={2}>
+  <Card title="Layout" icon="table-columns" href="/components/layout">
+    Arrange elements using **Stack**, **Grid**, **SplitGrid**, **Wrap**, and **Card**. Control orientation, row/column definitions, spacing, and resizable panes.
+  </Card>
+  <Card title="Text Inputs" icon="keyboard" href="/components/text-inputs">
+    Capture text with Monaco-powered **MultiLineTextInput** and **DiffTextInput**, plus **SingleLineTextInput**, **PasswordInput**, and **NumberInput**.
+  </Card>
+  <Card title="Controls" icon="sliders" href="/components/controls">
+    Drive user actions with **Button**, **DropDownButton**, **Switch**, **SelectDropDownList**, **FileSelector**, and the **Setting** / **SettingGroup** pattern.
+  </Card>
+  <Card title="Display" icon="eye" href="/components/display">
+    Present output and feedback with **Label**, **InfoBar**, **ImageViewer**, **DataGrid**, **List**, **ProgressBar**, **ProgressRing**, and **Icon**.
+  </Card>
+</CardGroup>

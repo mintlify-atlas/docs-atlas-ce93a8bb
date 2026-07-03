@@ -1,0 +1,244 @@
+---
+title: "Persist Tool Settings with ISettingsProvider"
+sidebarTitle: "Settings"
+description: "Use SettingDefinition and ISettingsProvider to persist and retrieve user-configurable settings in your DevToys extension across app restarts."
+---
+
+DevToys provides a first-class settings persistence API through `ISettingsProvider`. Any value your tool needs to survive across sessions — a preferred encoding format, an output toggle, a remembered file path — can be stored with a single method call and retrieved just as easily. Settings are stored locally per-user and survive app updates.
+
+## Injecting ISettingsProvider
+
+`ISettingsProvider` is available as a MEF import. Add an `[Import]` field to your tool class and MEF will inject it automatically at composition time:
+
+```csharp
+using System.ComponentModel.Composition;
+using DevToys.Api;
+
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.MyTool")]
+// ... other attributes ...
+internal sealed class MyTool : IGuiTool
+{
+    [Import]
+    private ISettingsProvider _settingsProvider = default!;
+
+    // ...
+}
+```
+
+<Note>
+Use `default!` to suppress the nullable warning — MEF guarantees the field is populated before any public member is accessed.
+</Note>
+
+## Defining a Setting
+
+A setting is described by a `SettingDefinition<T>` value. Declare it as a `static readonly` field on your tool class so it is created only once. The `name` parameter must be unique across all extensions; use a reverse-DNS style prefix to avoid collisions.
+
+```csharp
+// Boolean toggle — default is true
+private static readonly SettingDefinition<bool> EncodingUtf8Setting
+    = new(name: "MyDevToysExtension.MyTool.EncodingUtf8", defaultValue: true);
+
+// Enum — default is OutputFormat.Hex
+private static readonly SettingDefinition<OutputFormat> OutputFormatSetting
+    = new(name: "MyDevToysExtension.MyTool.OutputFormat", defaultValue: OutputFormat.Hex);
+```
+
+`SettingDefinition<T>` has two constructor overloads:
+
+```csharp
+// Simple — uses built-in serialization for primitives and enums
+public SettingDefinition(string name, T defaultValue);
+
+// With custom serializers — required for complex types
+public SettingDefinition(
+    string name,
+    T defaultValue,
+    Func<T, string> serialize,
+    Func<string, T> deserialize);
+```
+
+<Warning>
+Setting names cannot contain the `=` character (reserved for the `.ini` file format used in portable installations) and are limited to **255 characters** total — including the assembly prefix that `SettingDefinition` appends automatically.
+</Warning>
+
+## Reading and Writing Settings
+
+`ISettingsProvider` exposes three methods:
+
+```csharp
+// Get the current value, or the default if never set.
+T GetSetting<T>(SettingDefinition<T> settingDefinition);
+
+// Persist a new value.
+void SetSetting<T>(SettingDefinition<T> settingDefinition, T value);
+
+// Reset to the default value defined in SettingDefinition<T>.
+void ResetSetting<T>(SettingDefinition<T> settingDefinition);
+```
+
+Usage example:
+
+```csharp
+// Read
+bool isUtf8 = _settingsProvider.GetSetting(EncodingUtf8Setting);
+
+// Write
+_settingsProvider.SetSetting(EncodingUtf8Setting, false);
+
+// Reset
+_settingsProvider.ResetSetting(EncodingUtf8Setting);
+```
+
+## Reacting to Setting Changes
+
+Subscribe to `ISettingsProvider.SettingChanged` to be notified when any setting value changes. This is useful for keeping UI elements in sync when the user changes a preference from a settings panel.
+
+```csharp
+_settingsProvider.SettingChanged += OnSettingChanged;
+
+private void OnSettingChanged(object? sender, SettingChangedEventArgs e)
+{
+    if (e.SettingName == EncodingUtf8Setting.Name)
+    {
+        bool isUtf8 = _settingsProvider.GetSetting(EncodingUtf8Setting);
+        _utf8Switch.On(isUtf8);
+    }
+}
+```
+
+## Full Working Example
+
+The following example shows a tool that remembers a user's output format preference and updates its UI reactively when the setting changes.
+
+```csharp
+using System.ComponentModel.Composition;
+using DevToys.Api;
+using static DevToys.Api.GUI;
+
+internal enum OutputFormat { Hex, Base64, Utf8 }
+
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.ByteInspector")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uF4E3',
+    GroupName = PredefinedCommonToolGroupNames.Converters,
+    ResourceManagerAssemblyIdentifier = nameof(MyExtensionResourceAssemblyIdentifier),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortDisplayTitle))]
+internal sealed class ByteInspectorTool : IGuiTool
+{
+    // ── Setting definitions ───────────────────────────────────────────────────
+
+    private static readonly SettingDefinition<OutputFormat> OutputFormatSetting
+        = new(name: "MyDevToysExtension.ByteInspector.OutputFormat",
+              defaultValue: OutputFormat.Hex);
+
+    // ── MEF imports ───────────────────────────────────────────────────────────
+
+    [Import]
+    private ISettingsProvider _settingsProvider = default!;
+
+    // ── UI elements ───────────────────────────────────────────────────────────
+
+    private readonly IUIMultiLineTextInput _inputText
+        = MultiLineTextInput("byte-inspector-input");
+
+    private readonly IUIMultiLineTextInput _outputText
+        = MultiLineTextInput("byte-inspector-output");
+
+    private readonly IUISelectDropDownList _formatDropDown
+        = SelectDropDownList("byte-inspector-format");
+
+    // ── IGuiTool ──────────────────────────────────────────────────────────────
+
+    public UIToolView View
+    {
+        get
+        {
+            // Restore persisted setting.
+            OutputFormat savedFormat = _settingsProvider.GetSetting(OutputFormatSetting);
+
+            // Listen for changes from other parts of the app.
+            _settingsProvider.SettingChanged += OnSettingChanged;
+
+            // Build the drop-down items and select the saved format by index.
+            var items = new[]
+            {
+                Item("Hexadecimal", OutputFormat.Hex),
+                Item("Base64",      OutputFormat.Base64),
+                Item("UTF-8",       OutputFormat.Utf8),
+            };
+            int savedIndex = (int)savedFormat; // enum values map to indices 0, 1, 2
+
+            _formatDropDown
+                .WithItems(items)
+                .Select(savedIndex)
+                .OnItemSelected(OnOutputFormatSelected);
+
+            return new(
+                Stack()
+                    .Vertical()
+                    .MediumSpacing()
+                    .WithChildren(
+                        _formatDropDown.Title("Output format"),
+                        _inputText.Title("Input").OnTextChanged(UpdateOutput),
+                        _outputText.Title("Output").ReadOnly().CanCopyWhenEditable()));
+        }
+    }
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        if (parsedData is string text)
+            _inputText.Text(text);
+    }
+
+    // ── Event handlers ────────────────────────────────────────────────────────
+
+    private void OnOutputFormatSelected(IUIDropDownListItem? item)
+    {
+        if (item?.Value is OutputFormat format)
+        {
+            _settingsProvider.SetSetting(OutputFormatSetting, format);
+            UpdateOutput(_inputText.Text);
+        }
+    }
+
+    private void OnSettingChanged(object? sender, SettingChangedEventArgs e)
+    {
+        if (e.SettingName == OutputFormatSetting.Name)
+            UpdateOutput(_inputText.Text);
+    }
+
+    private void UpdateOutput(string input)
+    {
+        OutputFormat format = _settingsProvider.GetSetting(OutputFormatSetting);
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(input);
+
+        string result = format switch
+        {
+            OutputFormat.Hex    => Convert.ToHexString(bytes),
+            OutputFormat.Base64 => Convert.ToBase64String(bytes),
+            OutputFormat.Utf8   => System.Text.Encoding.UTF8.GetString(bytes),
+            _                   => string.Empty
+        };
+
+        _outputText.Text(result);
+    }
+}
+```
+
+## Tips
+
+<Tip>
+Use reverse-DNS style names such as `"com.mycompany.mytool.mysetting"` or `"MyCompany.MyTool.MySetting"` to ensure your setting names do not collide with those from other extensions or from DevToys itself.
+</Tip>
+
+<Tip>
+The `SettingDefinition<T>` constructor automatically prepends the calling assembly name to your base name, so `"MyTool.OutputFormat"` becomes `"MyDevToysExtension.MyTool.OutputFormat"` in storage. You do not need to include the assembly name manually — but using a descriptive prefix is still good practice.
+</Tip>
+
+<Note>
+Settings are stored locally per-user. On Windows, they are kept in the user's app data folder; on macOS and Linux, they follow the standard per-user configuration directory conventions. Settings are **not** synced across devices.
+</Note>

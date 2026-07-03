@@ -1,0 +1,120 @@
+{
+  "projectType": "framework",
+  "projectName": "DevToys",
+  "projectDescription": "A cross-platform desktop Swiss Army knife for developers that ships 30+ built-in tools and exposes an extensible MEF-based SDK for building and distributing custom tool extensions.",
+  "theme": "palm",
+  "primaryColor": "#734dc6",
+  "lightColor": "#bca4e2",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "built-in-tools"
+            ]
+          },
+          {
+            "group": "Extension Development",
+            "pages": [
+              "extensions/overview",
+              "extensions/create-gui-tool",
+              "extensions/create-cli-tool",
+              "extensions/smart-detection",
+              "extensions/settings",
+              "extensions/publish"
+            ]
+          },
+          {
+            "group": "GUI Components",
+            "pages": [
+              "components/overview",
+              "components/layout",
+              "components/text-inputs",
+              "components/controls",
+              "components/display"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/building",
+              "contributing/guidelines"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Interfaces",
+            "pages": [
+              "api/iguiTool",
+              "api/icommandlinetool",
+              "api/idatatypedetector",
+              "api/isettingsprovider",
+              "api/iresourceassemblyidentifier"
+            ]
+          },
+          {
+            "group": "Attributes",
+            "pages": [
+              "api/attributes/tooldisplayinformation",
+              "api/attributes/commandname",
+              "api/attributes/datatypename",
+              "api/attributes/other-attributes"
+            ]
+          },
+          {
+            "group": "UI Components",
+            "pages": [
+              "api/components/uitoolview",
+              "api/components/layout-components",
+              "api/components/input-components",
+              "api/components/display-components"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "30+ built-in developer tools (converters, encoders, formatters, generators, testers, text utilities, graphics)",
+    "Extensible MEF-based plugin architecture for building custom tools",
+    "Cross-platform support: Windows (WinUI/WPF), macOS, and Linux (GTK4)",
+    "CLI mode alongside GUI — every tool is also accessible from the command line",
+    "Smart Detection automatically identifies clipboard content and routes it to the right tool",
+    "Monaco Editor integration for rich syntax-highlighted text inputs",
+    "NuGet/VSIX-style extension packaging and installation via Extensions Manager",
+    "Fluent Design System UI with Mica material on Windows 11"
+  ],
+  "publicApiSurface": [
+    "IGuiTool — implement to create a GUI tool (View + OnDataReceived)",
+    "ICommandLineTool — implement to create a CLI tool (InvokeAsync)",
+    "IDataTypeDetector — implement for Smart Detection (TryDetectDataAsync)",
+    "ISettingsProvider — get/set/reset typed settings (GetSetting, SetSetting, ResetSetting)",
+    "IResourceAssemblyIdentifier — expose fonts and resource managers for an extension assembly",
+    "IMefProvider — import MEF components on demand (Import, ImportMany, SatisfyImports)",
+    "GuiToolGroup — declare a named group/category in the navigation sidebar",
+    "UIToolView — root container for a tool's UI, supports dialogs and scrolling",
+    "[ToolDisplayInformationAttribute] — metadata: icon, group, localized title/description",
+    "[CommandNameAttribute] / [CommandLineOptionAttribute] — CLI command name and options",
+    "[DataTypeNameAttribute] / [AcceptedDataTypeNameAttribute] — Smart Detection wiring",
+    "[TargetPlatformAttribute] — restrict a component to Windows, macOS, or Linux",
+    "[OrderAttribute] — control ordering of tools or groups relative to named components",
+    "[MenuPlacementAttribute] — place a tool in body or footer of the navigation",
+    "[NotSearchable] / [NotFavorable] / [NoCompactOverlaySupportAttribute] — opt-out flags",
+    "PredefinedCommonDataTypeNames — string constants for built-in detected data types",
+    "PredefinedCommonToolGroupNames — string constants for built-in tool group names",
+    "GUI.* static factory methods — fluent builder for IUIElement components (Button, Stack, Label, MultiLineTextInput, SplitGrid, etc.)",
+    "SandboxedFileReader — safe cross-platform file access inside tool implementations",
+    "SettingDefinition<T> — typed definition object for a user-configurable setting",
+    "ConsoleProgressBar — helper for displaying progress in CLI tools"
+  ]
+}

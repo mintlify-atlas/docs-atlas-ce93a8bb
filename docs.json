@@ -1,72 +1,104 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "DevToys",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#734dc6",
+    "light": "#bca4e2",
+    "dark": "#734dc6"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
+  "favicon": "https://media.brand.dev/c3cdc40d-6164-483a-865c-591d2ac11185.svg",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "https://media.brand.dev/ffe1266c-f78c-42db-80a3-cd48ca519182.svg",
+    "dark": "https://media.brand.dev/ffe1266c-f78c-42db-80a3-cd48ca519182.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/DevToys-app/DevToys"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/DevToys-app/DevToys"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "built-in-tools"
+            ]
+          },
+          {
+            "group": "Extension Development",
+            "pages": [
+              "extensions/overview",
+              "extensions/create-gui-tool",
+              "extensions/create-cli-tool",
+              "extensions/smart-detection",
+              "extensions/settings",
+              "extensions/publish"
+            ]
+          },
+          {
+            "group": "GUI Components",
+            "pages": [
+              "components/overview",
+              "components/layout",
+              "components/text-inputs",
+              "components/controls",
+              "components/display"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/building",
+              "contributing/guidelines"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Interfaces",
+            "pages": [
+              "api/iguiTool",
+              "api/icommandlinetool",
+              "api/idatatypedetector",
+              "api/isettingsprovider",
+              "api/iresourceassemblyidentifier"
+            ]
+          },
+          {
+            "group": "Attributes",
+            "pages": [
+              "api/attributes/tooldisplayinformation",
+              "api/attributes/commandname",
+              "api/attributes/datatypename",
+              "api/attributes/other-attributes"
+            ]
+          },
+          {
+            "group": "UI Components",
+            "pages": [
+              "api/components/uitoolview",
+              "api/components/layout-components",
+              "api/components/input-components",
+              "api/components/display-components"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

@@ -1,0 +1,116 @@
+---
+title: "ToolDisplayInformationAttribute — DevToys Extension SDK"
+sidebarTitle: "ToolDisplayInformation"
+description: "ToolDisplayInformationAttribute declares the icon, group, and localized string resources for a DevToys IGuiTool extension's sidebar entry and header display."
+---
+
+`ToolDisplayInformationAttribute` is the primary metadata attribute for any `IGuiTool` implementation. It controls how the tool appears in DevToys' sidebar navigation, search results, and tool header — including its display name, description, group membership, and icon glyph. Every `IGuiTool` class must carry exactly one instance of this attribute.
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `false`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class ToolDisplayInformationAttribute : Attribute
+```
+
+---
+
+## Properties
+
+<ParamField path="GroupName" type="string" required>
+  The internal name of the `GuiToolGroup` in which this tool should appear in the sidebar. The value must match the `InternalComponentName` declared via `[Name]` on an exported `GuiToolGroup`.
+
+  DevToys ships several built-in groups via `PredefinedCommonToolGroupNames`:
+
+  | Constant | Value |
+  |---|---|
+  | `PredefinedCommonToolGroupNames.EncodersDecoders` | `"Encoders / Decoders"` |
+  | `PredefinedCommonToolGroupNames.Converters` | `"Converters"` |
+  | `PredefinedCommonToolGroupNames.Formatters` | `"Formatters"` |
+  | `PredefinedCommonToolGroupNames.Generators` | `"Generators"` |
+  | `PredefinedCommonToolGroupNames.Graphic` | `"Graphic"` |
+  | `PredefinedCommonToolGroupNames.Testers` | `"Testers"` |
+  | `PredefinedCommonToolGroupNames.Text` | `"Text"` |
+
+  Extensions can define their own `GuiToolGroup` types and use their names here.
+</ParamField>
+
+<ParamField path="ResourceManagerAssemblyIdentifier" type="string" required>
+  The `InternalComponentName` (from `[Name]`) of the `IResourceAssemblyIdentifier` that owns the `.resx` file pointed to by `ResourceManagerBaseName`. DevToys uses this to resolve the correct resource manager at runtime.
+</ParamField>
+
+<ParamField path="ResourceManagerBaseName" type="string" required>
+  The fully qualified base name of the .NET resource manager used to look up all `*ResourceName` properties on this attribute. This is typically the namespace-qualified name of a `.resx` file, for example `"MyExtension.Strings.MyToolStrings"`.
+</ParamField>
+
+<ParamField path="ShortDisplayTitleResourceName" type="string" required>
+  The resource key whose value is the short title of this tool as it appears in the sidebar menu. Keep this concise — for example `"JSON"` rather than `"JSON Formatter"`.
+</ParamField>
+
+<ParamField path="LongDisplayTitleResourceName" type="string">
+  The resource key whose value is the full title shown in search results and at the top of the tool view. This is optional but strongly recommended when the short title alone is ambiguous. For example, while `ShortDisplayTitleResourceName` might resolve to `"JSON"`, the long title could resolve to `"JSON Formatter"` to differentiate it from a JSON converter.
+</ParamField>
+
+<ParamField path="DescriptionResourceName" type="string">
+  The resource key for a short description of what the tool does. Displayed in search results beneath the title.
+</ParamField>
+
+<ParamField path="AccessibleNameResourceName" type="string">
+  The resource key for the screen-reader accessible name of this tool. When omitted, DevToys falls back to the long display title or short display title. Set this when the icon-based sidebar entry needs a more descriptive announcement for accessibility.
+</ParamField>
+
+<ParamField path="SearchKeywordsResourceName" type="string">
+  The resource key for a comma- or space-separated list of additional search keywords. These keywords are matched when users type in the DevToys search bar and augment the title-based matching.
+</ParamField>
+
+<ParamField path="IconGlyph" type="char" required>
+  The Unicode character within `IconFontName` that represents the tool's icon. This glyph is rendered in the sidebar, search results, and tool header using the font specified by `IconFontName`.
+</ParamField>
+
+<ParamField path="IconFontName" type="string" required>
+  The name of the icon font that contains the `IconGlyph` character. The font must be registered via a `FontDefinition` returned by the `IResourceAssemblyIdentifier` identified by `ResourceManagerAssemblyIdentifier`. DevToys bundles its own icon font; extensions may provide their own.
+</ParamField>
+
+---
+
+## Full Usage Example
+
+The following example registers a JSON formatting tool in the **Formatters** group. All string properties point to resource keys inside `MyExtension.Strings.JsonFormatterStrings`, managed by the assembly identifier named `"MyExtension"`.
+
+```csharp
+using DevToys.Api;
+using System.ComponentModel.Composition;
+
+[Export(typeof(IGuiTool))]
+[Name("JsonFormatterTool")]
+[ToolDisplayInformation(
+    GroupName            = PredefinedCommonToolGroupNames.Formatters,
+    ResourceManagerAssemblyIdentifier = "MyExtension",
+    ResourceManagerBaseName           = "MyExtension.Strings.JsonFormatterStrings",
+    ShortDisplayTitleResourceName     = nameof(JsonFormatterStrings.ShortTitle),
+    LongDisplayTitleResourceName      = nameof(JsonFormatterStrings.LongTitle),
+    DescriptionResourceName           = nameof(JsonFormatterStrings.Description),
+    AccessibleNameResourceName        = nameof(JsonFormatterStrings.AccessibleName),
+    SearchKeywordsResourceName        = nameof(JsonFormatterStrings.SearchKeywords),
+    IconGlyph                         = '\uE8A5',
+    IconFontName                      = "FluentSystemIcons")]
+public sealed class JsonFormatterTool : IGuiTool
+{
+    public UIToolView View
+        => new UIToolView(
+            GUI.Label(null, "Hello from JSON Formatter!"));
+
+    public void OnDataReceived(string dataTypeName, object? parsedData) { }
+}
+```
+
+<Note>
+  The `[Name]` attribute (here `"JsonFormatterTool"`) is required alongside `[ToolDisplayInformation]`. The name is used by `[Order]` and `[AcceptedDataTypeName]` references elsewhere in the codebase.
+</Note>
+
+<Tip>
+  Use `nameof(...)` to reference resource key constants rather than raw strings to get compile-time safety and refactoring support.
+</Tip>

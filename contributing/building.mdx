@@ -1,0 +1,187 @@
+---
+title: "Build DevToys from Source on Windows, macOS, and Linux"
+sidebarTitle: "Building"
+description: "Set up a development environment, restore dependencies, and build DevToys or DevToys CLI from source on Windows, macOS, or Linux using .NET 8 and Node.js."
+---
+
+This guide covers how to build the core DevToys application and DevToys CLI from source. Note that these instructions apply to the app shell itself — the built-in tools (converters, formatters, generators, etc.) live in a separate repository and have their own build steps. All three major desktop platforms are supported: Windows, macOS, and Linux.
+
+<Note>
+  These instructions build DevToys **without** the built-in tools (converters, formatters, etc.). To build DevToys with all default tools included, clone the [DevToys.Tools](https://github.com/DevToys-app/DevToys.Tools) repository and follow the `CONTRIBUTING.md` in that repo alongside these steps.
+</Note>
+
+<Tabs>
+  <Tab title="Windows">
+    ### Prerequisites
+
+    Before you begin, ensure the following are installed on your machine:
+
+    - **Windows 10 version 1903 (19H1) or later**
+    - [**Visual Studio 2022 version 17.3 or later**](https://visualstudio.microsoft.com/vs/) with the following workloads enabled (or import the [`vs2022.vsconfig`](https://github.com/DevToys-app/DevToys/blob/main/vs2022.vsconfig) file from the repository root):
+      - ASP.NET and web development
+      - Node.js development
+      - .NET desktop development
+    - Latest [**Node.js**](https://nodejs.org/) (required to build Monaco Editor)
+
+    ### Setup & Build
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```powershell
+        git clone https://github.com/DevToys-app/DevToys.git
+        ```
+      </Step>
+
+      <Step title="Install Nuke.Build CLI tooling">
+        Open a PowerShell prompt in the root of the cloned repository and run:
+
+        ```powershell
+        dotnet tool install Nuke.GlobalTool --global
+        ```
+      </Step>
+
+      <Step title="Restore all dependencies">
+        Still in the repository root, run the initialization script:
+
+        ```powershell
+        .\init.ps1
+        ```
+
+        This script restores NuGet packages and Node.js dependencies needed for the build.
+      </Step>
+
+      <Step title="Open the solution in Visual Studio 2022">
+        Open `src/DevToys-Windows.sln` in Visual Studio 2022.
+      </Step>
+
+      <Step title="Set the startup project">
+        In Solution Explorer, right-click the project you want to run and choose **Set as Startup Project**:
+
+        - `app/dev/platforms/desktop/DevToys.Windows` — the full desktop application
+        - `app/dev/platforms/desktop/DevToys.CLI` — the command-line interface
+      </Step>
+
+      <Step title="Build and run">
+        Press **F5** to build and launch DevToys with the debugger attached.
+      </Step>
+    </Steps>
+
+    <Tip>
+      Most of the `DevToys.Windows` app renders inside a WebView2 browser control. Press **F12** while the app is running to open the web developer tools and inspect or debug the Blazor UI layer directly.
+    </Tip>
+  </Tab>
+
+  <Tab title="macOS">
+    ### Prerequisites
+
+    Before you begin, ensure the following are installed on your machine:
+
+    - **macOS 12.0 or later**
+    - [**Xcode 15.0 or later**](https://developer.apple.com/xcode/) — run it at least once after installation to let it install the built-in macOS and iOS tooling
+    - [**Visual Studio Code**](https://code.visualstudio.com/) with the [C# Dev Kit extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit), **or** [**JetBrains Rider**](https://www.jetbrains.com/rider/)
+      > Visual Studio for Mac is not supported — it is a deprecated product and does not support .NET 8.0.
+    - [**.NET 8.0 SDK**](https://dotnet.microsoft.com/download/dotnet-core/8.0) (version **8.0.100** or later). If you are on a Mac with Apple Silicon, install the **arm64** variant. Verify your installation with `dotnet --version`.
+    - [**Node.js 14.0 or later**](https://nodejs.org/) (required to build Monaco Editor)
+    - **Apple Silicon only:** install [Rosetta 2](https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment) if not already present:
+      ```bash
+      softwareupdate --install-rosetta
+      ```
+
+    ### Setup & Build
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/DevToys-app/DevToys.git
+        ```
+      </Step>
+
+      <Step title="Install Nuke.Build CLI tooling">
+        Open a Terminal in the repository root and run:
+
+        ```bash
+        dotnet tool install Nuke.GlobalTool --global
+        ```
+      </Step>
+
+      <Step title="Restore all dependencies">
+        Run the initialization script from the repository root:
+
+        ```bash
+        sh init.sh
+        ```
+      </Step>
+
+      <Step title="Open the solution and run">
+        **JetBrains Rider:**
+        1. Open `src/DevToys-MacOS.sln` in Rider.
+        2. Set `app/dev/platforms/desktop/DevToys.MacOS` or `app/dev/platforms/desktop/DevToys.CLI` as the startup project.
+        3. Press the Run button to build and launch.
+
+        **Visual Studio Code:**
+        1. Open the repository root folder in VS Code.
+        2. Go to **Run and Debug** (⇧⌘D), select the **DevToys MacOS** or **DevToys CLI** launch configuration, then press Start.
+      </Step>
+
+      <Step title="(Optional) Debug the Blazor WebView in Safari">
+        Most of the macOS app renders inside a Safari WebKit WebView. To attach Safari's Web Inspector to the running BlazorWebView:
+
+        1. Open desktop **Safari** and go to **Safari → Settings → Advanced**, then enable **Show features for web developers**.
+        2. Launch `DevToys.MacOS` from your IDE.
+        3. In Safari's menu bar, select **Develop → \{your device name\} → 0.0.0.0**. If multiple `0.0.0.0` entries appear, select the one that highlights the BlazorWebView in blue.
+        4. The **Web Inspector** window will open, connected to the Blazor app running inside DevToys.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Linux">
+    ### Prerequisites
+
+    Before you begin, ensure the following are installed on your machine:
+
+    - **GTK4** and **WebKitGTK** — most distributions such as Ubuntu include these pre-installed
+    - [**Visual Studio Code**](https://code.visualstudio.com/) with the [C# Dev Kit extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit), **or** [**JetBrains Rider**](https://www.jetbrains.com/rider/)
+    - [**.NET 8.0 SDK**](https://dotnet.microsoft.com/download/dotnet-core/8.0) (version **8.0.100** or later)
+      - **Do not** install .NET from `snap` unless GTK was also installed through `snap` — mixing package managers causes runtime issues
+      - Instead, use the [official scripted install](https://learn.microsoft.com/en-us/dotnet/core/install/linux-scripted-manual#scripted-install), install the [required dependencies](https://learn.microsoft.com/en-us/dotnet/core/install/linux-ubuntu#dependencies), and [set the environment variables system-wide](https://learn.microsoft.com/en-us/dotnet/core/install/linux-scripted-manual#set-environment-variables-system-wide)
+      - Verify your installation with `dotnet --version`
+    - [**Node.js 14.0 or later**](https://nodejs.org/) (required to build Monaco Editor)
+
+    ### Setup & Build
+
+    <Steps>
+      <Step title="Clone the repository">
+        ```bash
+        git clone https://github.com/DevToys-app/DevToys.git
+        ```
+      </Step>
+
+      <Step title="Install Nuke.Build CLI tooling">
+        Open a Terminal in the repository root and run:
+
+        ```bash
+        dotnet tool install Nuke.GlobalTool --global
+        ```
+      </Step>
+
+      <Step title="Restore all dependencies">
+        Run the initialization script from the repository root:
+
+        ```bash
+        bash init.sh
+        ```
+      </Step>
+
+      <Step title="Open the solution and run">
+        **JetBrains Rider:**
+        1. Open `src/DevToys-Linux.sln` in Rider.
+        2. Set `app/dev/platforms/desktop/DevToys.Linux` or `app/dev/platforms/desktop/DevToys.CLI` as the startup project.
+        3. Press the Run button to build and launch.
+
+        **Visual Studio Code:**
+        1. Open the repository root folder in VS Code.
+        2. Go to **Run and Debug**, select the **DevToys Linux** or **DevToys CLI** launch configuration, then press Start.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>

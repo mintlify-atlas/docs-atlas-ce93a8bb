@@ -1,0 +1,260 @@
+---
+title: "Create a GUI Tool Extension for DevToys"
+sidebarTitle: "GUI Tool"
+description: "Learn how to implement IGuiTool, declare ToolDisplayInformationAttribute metadata, build a UIToolView, and wire Smart Detection for a DevToys GUI extension."
+---
+
+A GUI tool is the most common kind of DevToys extension. It appears as an entry in the sidebar, renders an interactive view inside the app window, and can optionally receive data routed to it by the Smart Detection engine. The core contract is the `IGuiTool` interface, which has just two members: a `View` property that returns the root `UIToolView`, and an `OnDataReceived` callback for Smart Detection integration.
+
+<Steps>
+
+### Create the class library
+
+Create a new .NET class library targeting `net8.0` and add a reference to the `DevToys.Api` NuGet package:
+
+```bash
+dotnet new classlib -n MyDevToysExtension -f net8.0
+cd MyDevToysExtension
+dotnet add package DevToys.Api
+```
+
+The `DevToys.Api` package brings in MEF (`System.ComponentModel.Composition`) and all the GUI building blocks automatically.
+
+### Add an IResourceAssemblyIdentifier
+
+Every extension assembly needs exactly one exported `IResourceAssemblyIdentifier`. The app uses it to resolve your `.resx` strings and to load any bundled fonts. The `[Name]` value must exactly match the `ResourceManagerAssemblyIdentifier` property you set on `[ToolDisplayInformation]`.
+
+```csharp
+using System.ComponentModel.Composition;
+using DevToys.Api;
+
+[Export(typeof(IResourceAssemblyIdentifier))]
+[Name(nameof(MyExtensionResourceAssemblyIdentifier))]
+public sealed class MyExtensionResourceAssemblyIdentifier : IResourceAssemblyIdentifier
+{
+    public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
+        => ValueTask.FromResult(Array.Empty<FontDefinition>());
+}
+```
+
+<Note>
+If you bundle a custom icon font with your extension, return the font definitions here. The font must be a `.ttf` or `.otf` file — WOFF and WOFF2 are not supported.
+</Note>
+
+### Add a resource file and localized strings
+
+Add a `Strings.resx` resource file to your project with at least a `ShortDisplayTitle` entry. Visual Studio and the `dotnet` CLI both generate a `Strings` class from the `.resx` file automatically.
+
+```xml
+<!-- Strings.resx (simplified) -->
+<data name="ShortDisplayTitle">
+  <value>Text Upper</value>
+</data>
+<data name="LongDisplayTitle">
+  <value>Text to Uppercase Converter</value>
+</data>
+<data name="Description">
+  <value>Converts text to uppercase.</value>
+</data>
+```
+
+### Implement IGuiTool
+
+Create a class that implements `IGuiTool` and decorate it with the required MEF and metadata attributes.
+
+- `[Export(typeof(IGuiTool))]` — registers the class with MEF.
+- `[Name("...")]` — a unique internal identifier used by `[Order]` and cross-component references.
+- `[ToolDisplayInformation(...)]` — all display metadata (icon, group, localized strings).
+
+```csharp
+using System.ComponentModel.Composition;
+using DevToys.Api;
+using static DevToys.Api.GUI;
+
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.TextUppercase")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uF4E3',
+    GroupName = PredefinedCommonToolGroupNames.Text,
+    ResourceManagerAssemblyIdentifier = nameof(MyExtensionResourceAssemblyIdentifier),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortDisplayTitle),
+    LongDisplayTitleResourceName = nameof(Strings.LongDisplayTitle),
+    DescriptionResourceName = nameof(Strings.Description))]
+internal sealed class TextUppercaseTool : IGuiTool
+{
+    private readonly IUIMultiLineTextInput _inputText = MultiLineTextInput("input-text");
+    private readonly IUIMultiLineTextInput _outputText = MultiLineTextInput("output-text");
+
+    public UIToolView View
+        => new(
+            Stack()
+                .Vertical()
+                .MediumSpacing()
+                .WithChildren(
+                    _inputText
+                        .Title("Input")
+                        .OnTextChanged(OnInputTextChanged),
+                    _outputText
+                        .Title("Output")
+                        .ReadOnly()
+                        .CanCopyWhenEditable()));
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        if (parsedData is string text)
+        {
+            _inputText.Text(text);
+        }
+    }
+
+    private void OnInputTextChanged(string text)
+    {
+        _outputText.Text(text.ToUpperInvariant());
+    }
+}
+```
+
+### Build the UIToolView
+
+`UIToolView` is the root of your tool's UI. Every element inside it is created through the static `GUI.*` factory methods (imported via `using static DevToys.Api.GUI`). All factory methods return fluent builder interfaces — chain method calls to configure each element.
+
+Common layout containers:
+
+| Factory | Description |
+|---|---|
+| `Stack()` | Arranges children vertically or horizontally |
+| `Grid()` | CSS-style row/column grid with explicit cell placement |
+| `SplitGrid()` | Two-pane resizable split layout |
+| `Wrap()` | Wraps children onto multiple lines |
+
+Common input/output components:
+
+| Factory | Description |
+|---|---|
+| `MultiLineTextInput(id?)` | Multi-line code/text editor with syntax highlighting support |
+| `SingleLineTextInput(id?)` | Compact single-line text field |
+| `Switch(id?)` | Toggle switch for boolean options |
+| `NumberInput(id?)` | Numeric input field |
+| `SelectDropDownList(id?)` | Drop-down selection list |
+| `Button(id?)` | Clickable button |
+
+<Tip>
+Set `isScrollable: false` in the `UIToolView` constructor when your layout manages its own scrolling (for example, a grid with a list that should fill the window height without creating a double-scrollbar). The default is `true`.
+</Tip>
+
+</Steps>
+
+## Full Working Example
+
+The following complete example shows a minimal extension with a two-pane text-to-uppercase converter:
+
+```csharp
+using System.ComponentModel.Composition;
+using DevToys.Api;
+using static DevToys.Api.GUI;
+
+// ── Resource assembly identifier ─────────────────────────────────────────────
+
+[Export(typeof(IResourceAssemblyIdentifier))]
+[Name(nameof(MyExtensionResourceAssemblyIdentifier))]
+public sealed class MyExtensionResourceAssemblyIdentifier : IResourceAssemblyIdentifier
+{
+    public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
+        => ValueTask.FromResult(Array.Empty<FontDefinition>());
+}
+
+// ── GUI tool ──────────────────────────────────────────────────────────────────
+
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.TextUppercase")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uF4E3',
+    GroupName = PredefinedCommonToolGroupNames.Text,
+    ResourceManagerAssemblyIdentifier = nameof(MyExtensionResourceAssemblyIdentifier),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortDisplayTitle),
+    LongDisplayTitleResourceName = nameof(Strings.LongDisplayTitle),
+    DescriptionResourceName = nameof(Strings.Description))]
+[AcceptedDataTypeName(PredefinedCommonDataTypeNames.Text)]
+internal sealed class TextUppercaseTool : IGuiTool
+{
+    private readonly IUIMultiLineTextInput _inputText
+        = MultiLineTextInput("input-text");
+
+    private readonly IUIMultiLineTextInput _outputText
+        = MultiLineTextInput("output-text");
+
+    public UIToolView View
+        => new(
+            Stack()
+                .Vertical()
+                .MediumSpacing()
+                .WithChildren(
+                    _inputText
+                        .Title("Input")
+                        .OnTextChanged(OnInputTextChanged),
+                    _outputText
+                        .Title("Output")
+                        .ReadOnly()
+                        .CanCopyWhenEditable()));
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        // Smart Detection passes plain text — pipe it straight to the input.
+        if (parsedData is string text)
+        {
+            _inputText.Text(text);
+        }
+    }
+
+    private void OnInputTextChanged(string text)
+    {
+        _outputText.Text(text.ToUpperInvariant());
+    }
+}
+```
+
+## ToolDisplayInformationAttribute Reference
+
+All properties below are set as named arguments on the attribute.
+
+<Accordion title="Required properties">
+
+| Property | Type | Description |
+|---|---|---|
+| `IconFontName` | `string` | Name of the font family used to render `IconGlyph`. Use `"FluentSystemIcons"` for the built-in Fluent icon font. |
+| `IconGlyph` | `char` | Unicode code point of the icon glyph within the specified font. |
+| `GroupName` | `string` | Internal name of the `GuiToolGroup` this tool should appear under. Use constants from `PredefinedCommonToolGroupNames` or the `[Name]` of your own exported `GuiToolGroup`. |
+| `ResourceManagerAssemblyIdentifier` | `string` | The `[Name]` value of your `IResourceAssemblyIdentifier` implementation. |
+| `ResourceManagerBaseName` | `string` | The base name passed to `ResourceManager` — typically `"YourNamespace.Strings"`. |
+| `ShortDisplayTitleResourceName` | `string` | Resource key for the short title shown in the sidebar (e.g., `"JSON"`). |
+
+</Accordion>
+
+<Accordion title="Optional properties">
+
+| Property | Type | Description |
+|---|---|---|
+| `LongDisplayTitleResourceName` | `string` | Resource key for the longer title shown in the tool header and search results (e.g., `"JSON Formatter"`). Defaults to the short title if omitted. |
+| `DescriptionResourceName` | `string` | Resource key for a one-sentence tool description shown in search results. |
+| `AccessibleNameResourceName` | `string` | Resource key for the name read by screen readers. Falls back to the short title. |
+| `SearchKeywordsResourceName` | `string` | Resource key for a comma-separated list of extra search keywords. |
+
+</Accordion>
+
+## Optional Behavioural Attributes
+
+These attributes fine-tune how DevToys treats your tool. All are optional.
+
+| Attribute | Effect |
+|---|---|
+| `[TargetPlatform(Platform.Windows)]` | Restricts the tool to the specified platform. Apply multiple times for multiple platforms. Omit entirely to target all platforms (`Windows`, `MacOS`, `Linux`). |
+| `[Order(Before = "OtherToolName")]` | Places this tool **before** the named tool in the sidebar list. |
+| `[Order(After = "OtherToolName")]` | Places this tool **after** the named tool in the sidebar list. |
+| `[MenuPlacement(MenuPlacement.Footer)]` | Moves the sidebar entry to the footer area (below the separator). Default is `MenuPlacement.Body`. |
+| `[NotSearchable]` | Excludes the tool from the search index. |
+| `[NotFavorable]` | Prevents users from adding the tool to their favorites. |
+| `[NoCompactOverlaySupport]` | Disables the Compact Overlay (picture-in-picture) window mode for this tool. |

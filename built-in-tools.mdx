@@ -1,0 +1,149 @@
+---
+title: "30+ Built-in Developer Tools in DevToys"
+sidebarTitle: "Built-in Tools"
+description: "DevToys ships with over 30 tools across 7 categories: converters, encoders/decoders, formatters, generators, graphics, testers, and text utilities."
+---
+
+DevToys 2.0 ships with more than 30 tools organized into seven categories. Every tool runs locally — no internet connection or external service is involved. The categories match the constants defined in `PredefinedCommonToolGroupNames` and appear as the top-level groups in the app's sidebar. Use the search bar at the top of the sidebar to jump to any tool by name or keyword without navigating the category tree.
+
+## Tool Categories
+
+<AccordionGroup>
+  <Accordion title="Converters" icon="arrows-rotate">
+    Converters transform data from one format or representation to another.
+
+    | Tool | Description |
+    |---|---|
+    | **JSON ↔ YAML** | Convert a JSON document to YAML and back. Handles nested objects, arrays, and scalar types. |
+    | **Number Base Converter** | Convert integers between binary (base 2), octal (base 8), decimal (base 10), and hexadecimal (base 16). |
+    | **Date Converter** | Convert Unix timestamps, ISO 8601 strings, and other date formats to a human-readable representation and back. |
+
+    Smart Detection automatically opens the Date Converter when a Unix timestamp or ISO date string is detected on the clipboard (`date` data type).
+  </Accordion>
+
+  <Accordion title="Encoders / Decoders" icon="code">
+    Encoders and Decoders let you transform data between encoded and raw forms without relying on external websites.
+
+    | Tool | Description |
+    |---|---|
+    | **HTML Encoder / Decoder** | Escape and unescape HTML entities (e.g. `&amp;`, `&lt;`). |
+    | **URL Encoder / Decoder** | Percent-encode and decode URL components. |
+    | **Base64 Text** | Encode plain text to Base64 and decode Base64 back to text. Supports UTF-8 and ASCII. |
+    | **Base64 Image** | Convert an image file to a Base64 data URI and vice versa. |
+    | **GZip** | Compress text to GZip and decompress GZip-encoded data. |
+    | **JWT Decoder** | Decode and inspect the header, payload, and signature of a JSON Web Token without verifying the signature. |
+    | **QR Code** | Generate a QR code image from any text or URL, or decode a QR code image back to text. |
+
+    Smart Detection recognizes `base64Text`, `base64Image`, and `gzip` data types and pre-fills the relevant tool automatically.
+  </Accordion>
+
+  <Accordion title="Formatters" icon="align-left">
+    Formatters pretty-print minified or poorly indented structured documents, making them easy to read and review.
+
+    | Tool | Description |
+    |---|---|
+    | **JSON Formatter** | Indent or minify a JSON document. Highlights syntax errors inline. |
+    | **SQL Formatter** | Format a SQL query with configurable indentation and keyword casing. |
+    | **XML Formatter** | Indent or minify an XML document. Reports well-formedness errors. |
+
+    Smart Detection automatically opens the JSON Formatter when a JSON object (`json`) or JSON array (`jsonArray`) is detected on the clipboard.
+  </Accordion>
+
+  <Accordion title="Generators" icon="wand-magic-sparkles">
+    Generators produce new data on demand — useful for testing, seeding databases, and filling forms.
+
+    | Tool | Description |
+    |---|---|
+    | **Hash & Checksum** | Compute MD5, SHA-1, SHA-256, and SHA-512 hashes for text or files. |
+    | **Lorem Ipsum** | Generate placeholder text with configurable word, sentence, and paragraph counts. |
+    | **Password Generator** | Create cryptographically random passwords with configurable length, character sets, and exclusions. |
+    | **UUID Generator** | Generate one or more RFC 4122 UUIDs (version 4 random). |
+  </Accordion>
+
+  <Accordion title="Graphic" icon="image">
+    Graphic tools handle image inspection, conversion, and optimization — all offline, without uploading files to a third-party service.
+
+    | Tool | Description |
+    |---|---|
+    | **Color Blindness Simulator** | Preview an image as it appears to users with various types of color blindness (protanopia, deuteranopia, tritanopia, and more). |
+    | **PNG / JPEG Compressor** | Losslessly or lossily compress PNG and JPEG images to reduce file size. |
+    | **Image Converter** | Convert between common image formats (PNG, JPEG, WebP, BMP, GIF, etc.). |
+
+    Smart Detection recognizes `image`, `imageFile`, `base64Image`, `file`, and `files` data types and routes them to the appropriate graphic tool.
+  </Accordion>
+
+  <Accordion title="Testers" icon="flask">
+    Testers let you validate, query, and experiment with structured data interactively — with real-time results as you type.
+
+    | Tool | Description |
+    |---|---|
+    | **JSONPath Tester** | Evaluate a JSONPath expression against a JSON document and inspect matching nodes. |
+    | **RegEx Tester** | Test a regular expression against sample text with real-time match highlighting and group capture details. |
+    | **XML Validator / Tester** | Validate an XML document against an XSD schema and inspect validation errors. |
+
+    Smart Detection routes `json` / `jsonArray` clipboard data to the JSONPath Tester and `xml` / `xsd` data to the XML Validator.
+  </Accordion>
+
+  <Accordion title="Text" icon="font">
+    Text utilities cover a broad set of everyday text manipulation tasks.
+
+    | Tool | Description |
+    |---|---|
+    | **Markdown Preview** | Render a Markdown document as formatted HTML in a split-pane view. |
+    | **Text Comparer** | Side-by-side diff view that highlights added, removed, and changed lines between two text inputs. |
+    | **Text Analyzer & Utilities** | Count characters, words, sentences, lines, and paragraphs; change case; remove duplicates; and more. |
+    | **List Sorter** | Sort a list of lines alphabetically, reverse-alphabetically, by length, or randomly; remove duplicate lines. |
+
+    Smart Detection recognizes the `text` data type (any plain text) and may pre-fill text tools depending on which is most relevant.
+  </Accordion>
+</AccordionGroup>
+
+## Smart Detection Data Types
+
+Smart Detection is powered by `IDataTypeDetector` implementations that run silently in the background. When you copy data to your clipboard, DevToys evaluates it against every registered detector and routes the result to the best-matching tool. The following data types are predefined in `PredefinedCommonDataTypeNames` and are understood by the built-in tools:
+
+<CardGroup cols={2}>
+  <Card title="text" icon="font">
+    Any plain text. This is the base type from which most other detectors inherit.
+  </Card>
+  <Card title="json / jsonArray" icon="brackets-curly">
+    A valid JSON object or JSON array respectively. Triggers the JSON Formatter, JSON ↔ YAML Converter, and JSONPath Tester.
+  </Card>
+  <Card title="xml / xsd" icon="code">
+    A well-formed XML document or an XML Schema Definition. Triggers the XML Formatter and XML Validator.
+  </Card>
+  <Card title="base64Text / base64Image" icon="lock">
+    Base64-encoded text or a Base64-encoded image data URI. Triggers the Base64 Text or Base64 Image tool.
+  </Card>
+  <Card title="image / imageFile" icon="image">
+    Raw image data or a file-system path pointing to an image file. Triggers graphic tools.
+  </Card>
+  <Card title="file / files" icon="folder-open">
+    A single file path or multiple file paths. Used by the compressor and image converter tools.
+  </Card>
+  <Card title="gzip" icon="file-zipper">
+    GZip-compressed binary or text data. Triggers the GZip Encoder/Decoder tool.
+  </Card>
+  <Card title="date" icon="calendar">
+    A parseable date or timestamp (Unix epoch, ISO 8601, etc.). Triggers the Date Converter.
+  </Card>
+</CardGroup>
+
+Detectors can also declare a **base type** — for example, the JWT detector declares `json` as its base, meaning it only runs after the JSON detector succeeds. This forms a detection hierarchy that avoids redundant parsing work.
+
+## Extending with More Tools
+
+The 30+ built-in tools cover the most common developer tasks, but DevToys is extensible. Additional tools — including community-contributed utilities for tasks like TOML formatting, color picking, or HTTP request building — are available as `.devtoys` extension packages.
+
+<Note>
+  Open the **Extensions Manager** from the DevToys settings panel to browse, install, update, and remove community extensions. Extensions are packaged as standard NuGet packages with the `.devtoys` file extension.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Extensions Overview" icon="puzzle-piece" href="/extensions/overview">
+    Learn how to find and install community extensions from within the app.
+  </Card>
+  <Card title="Publish an Extension" icon="upload" href="/extensions/publish">
+    Build your own tool and share it with the DevToys community as a `.devtoys` package.
+  </Card>
+</CardGroup>

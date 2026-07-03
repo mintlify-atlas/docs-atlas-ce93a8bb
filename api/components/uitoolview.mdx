@@ -1,0 +1,220 @@
+---
+title: "UIToolView — Root Container for DevToys Tool UIs"
+sidebarTitle: "UIToolView"
+description: "UIToolView is the root container returned by IGuiTool.View. It holds the root IUIElement, controls scrollability, and supports modal dialogs via OpenDialogAsync."
+---
+
+`UIToolView` is the root container that every `IGuiTool` implementation returns from its `View` property. It wraps a single `IUIElement` root (typically a layout component such as `IUIStack` or `IUIGrid`), controls whether the tool's content is scrollable, and manages the lifecycle of modal dialogs. The DevToys rendering engine mounts the `UIToolView` directly into the tool panel when the user navigates to a tool.
+
+**Namespace:** `DevToys.Api`  
+**Inheritance:** Implements `INotifyPropertyChanged`
+
+```csharp
+public class UIToolView : INotifyPropertyChanged
+```
+
+---
+
+## Constructors
+
+```csharp
+// Creates a scrollable view with no root element
+public UIToolView()
+
+// Creates a scrollable view with the given root element
+public UIToolView(IUIElement? rootElement)
+
+// Creates a view with the given scrollability and no root element
+public UIToolView(bool isScrollable)
+
+// Creates a view with the given scrollability and root element
+public UIToolView(bool isScrollable, IUIElement? rootElement)
+```
+
+`isScrollable` defaults to `true` when not specified. All overloads delegate to the full constructor `UIToolView(bool isScrollable, IUIElement? rootElement)`.
+
+---
+
+## Properties
+
+<ParamField path="IsScrollable" type="bool" default="true">
+  When `true` (the default), DevToys wraps the tool's content in a scroll viewer, allowing the tool to exceed the visible area. Set to `false` for tools whose layouts should always fit exactly within the available space — for example, a split-pane editor where each pane manages its own scrolling.
+</ParamField>
+
+<ParamField path="RootElement" type="IUIElement?">
+  The top-level UI element rendered inside the tool panel. Typically a layout container such as `GUI.Stack(...)`, `GUI.SplitGrid(...)`, or `GUI.Grid(...)`. May be `null` while the view is being constructed; the rendering engine re-renders whenever this property changes.
+</ParamField>
+
+<ParamField path="CurrentOpenedDialog" type="UIDialog?">
+  The modal dialog currently displayed over the tool, or `null` when no dialog is open. Only one dialog can be open at a time. This property is set and cleared automatically by `OpenDialogAsync` and the dialog's `Close()` method respectively.
+</ParamField>
+
+---
+
+## Events
+
+| Event | Description |
+|---|---|
+| `IsScrollableChanged` | Raised when `IsScrollable` changes. |
+| `RootElementChanged` | Raised when `RootElement` changes. |
+| `CurrentOpenedDialogChanged` | Raised when `CurrentOpenedDialog` changes (dialog opened or closed). |
+| `PropertyChanged` | Standard `INotifyPropertyChanged` event raised for any property change. |
+
+---
+
+## Methods
+
+### `OpenDialogAsync` (two overloads)
+
+```csharp
+public Task<UIDialog> OpenDialogAsync(
+    IUIElement dialogContent,
+    bool isDismissible = false)
+
+public Task<UIDialog> OpenDialogAsync(
+    IUIElement dialogContent,
+    IUIElement? footerContent,
+    bool isDismissible = false)
+```
+
+Displays a modal dialog over the tool's content. Returns the `UIDialog` instance so the caller can programmatically close it or await `UIDialog.DialogCloseAwaiter`.
+
+<ParamField path="dialogContent" type="IUIElement" required>
+  The UI element to display as the body of the dialog.
+</ParamField>
+
+<ParamField path="footerContent" type="IUIElement?">
+  An optional element rendered in the dialog footer — typically a row of buttons.
+</ParamField>
+
+<ParamField path="isDismissible" type="bool" default="false">
+  When `true`, the user can close the dialog by clicking outside it, pressing `Escape`, or moving focus away. When `false`, the dialog can only be closed programmatically via `UIDialog.Close()`.
+</ParamField>
+
+<Note>
+  Calling `OpenDialogAsync` while a dialog is already open throws an `InvalidOperationException`. Always ensure `CurrentOpenedDialog` is `null` before opening a new dialog.
+</Note>
+
+---
+
+### `GetChildElementById`
+
+```csharp
+public IUIElement? GetChildElementById(string id)
+```
+
+Recursively searches the entire UI tree rooted at `RootElement` for the first element whose `Id` matches the given string. Returns `null` if no element is found or if `RootElement` does not implement `IUIElementWithChildren`.
+
+<Note>
+  This method traverses the full UI tree and may be slow for complex layouts. Prefer storing direct references to elements as fields in the tool class rather than relying on this lookup in hot paths.
+</Note>
+
+---
+
+## Extension Method
+
+```csharp
+// Fluent builder — sets RootElement and returns the same UIToolView
+public static UIToolView WithRootElement(
+    this UIToolView toolView,
+    IUIElement? rootElement)
+```
+
+Allows inline construction of a `UIToolView` with a root element:
+
+```csharp
+public UIToolView View
+    => new UIToolView(isScrollable: false)
+           .WithRootElement(
+               GUI.SplitGrid()
+                   .Vertical()
+                   .WithLeftPaneChild(GUI.MultiLineTextInput("input"))
+                   .WithRightPaneChild(GUI.MultiLineTextInput("output").ReadOnly()));
+```
+
+---
+
+## UIDialog
+
+`UIDialog` is returned by `OpenDialogAsync`. It is **not** constructed directly.
+
+```csharp
+public sealed class UIDialog : IDisposable
+```
+
+### UIDialog Members
+
+| Member | Type | Description |
+|---|---|---|
+| `IsOpened` | `bool` | `true` while the dialog is visible. |
+| `IsDismissible` | `bool` | Whether clicking outside or pressing Escape closes it. |
+| `DialogContent` | `IUIElement?` | The body element passed to `OpenDialogAsync`. |
+| `FooterContent` | `IUIElement?` | The footer element, if any. |
+| `DialogCloseAwaiter` | `Task` | A task that completes when the dialog is closed. |
+| `IsOpenedChanged` | `event EventHandler?` | Raised when `IsOpened` changes. |
+| `Close()` | method | Programmatically closes the dialog. |
+| `Dispose()` | method | Calls `Close()` — safe to use in `using` blocks. |
+
+---
+
+## Full Example: Confirmation Dialog
+
+The following example shows a tool with a "Reset" button that opens a confirmation dialog before clearing a text area. The dialog has an "OK" button in its footer.
+
+```csharp
+using DevToys.Api;
+using System.ComponentModel.Composition;
+
+[Export(typeof(IGuiTool))]
+[Name("MyTool")]
+[ToolDisplayInformation(/* ... */)]
+public sealed class MyTool : IGuiTool
+{
+    private readonly UIToolView _view;
+    private readonly IUIMultiLineTextInput _editor
+        = GUI.MultiLineTextInput("editor");
+
+    public MyTool()
+    {
+        _view = new UIToolView(
+            isScrollable: false,
+            GUI.Stack()
+               .Vertical()
+               .WithChildren(
+                   _editor,
+                   GUI.Button("reset-btn")
+                      .Text("Reset")
+                      .OnClick(OnResetClickedAsync)));
+    }
+
+    public UIToolView View => _view;
+
+    public void OnDataReceived(string dataTypeName, object? parsedData) { }
+
+    private async ValueTask OnResetClickedAsync()
+    {
+        UIDialog? dialog = null;
+        IUIButton? okButton = null;
+
+        okButton = GUI.Button("dialog-ok")
+            .Text("OK")
+            .AccentAppearance()
+            .OnClick(() => dialog?.Close());
+
+        dialog = await _view.OpenDialogAsync(
+            dialogContent: GUI.Label(null, "Are you sure you want to reset?"),
+            footerContent: GUI.Stack()
+                              .Horizontal()
+                              .WithChildren(okButton),
+            isDismissible: true);
+
+        // Wait for the dialog to be dismissed
+        await dialog.DialogCloseAwaiter;
+        _editor.Text(string.Empty);
+    }
+}
+```
+
+<Tip>
+  Use `isDismissible: true` for low-consequence dialogs (like informational alerts). For destructive actions, set `isDismissible: false` and require explicit button presses to ensure the user makes a deliberate choice.
+</Tip>

@@ -1,0 +1,94 @@
+---
+title: "Contribute to DevToys: Guidelines and Code of Conduct"
+sidebarTitle: "Guidelines"
+description: "How to report bugs, submit features, create pull requests, and contribute translations for DevToys using Crowdin."
+---
+
+DevToys is an open-source project and warmly welcomes contributions of all kinds — whether you've spotted a bug, have an idea for a new feature, want to improve the codebase directly, or simply want to help make the app available in your language. This page outlines the main ways to get involved and the community standards that keep the project healthy and inclusive.
+
+## Ways to Contribute
+
+There are four primary ways to contribute to DevToys:
+
+### 1. Report a Bug
+
+Found something that isn't working as expected? Open a GitHub Issue using the **bug report** template so the maintainers can triage and reproduce it efficiently.
+
+[Open a bug report →](https://github.com/DevToys-app/DevToys/issues/new?template=bug_report.md)
+
+### 2. Request a Feature
+
+Have an idea for a new tool or improvement? Share it via a GitHub Issue using the **feature request** template. Describe the problem it solves and how you'd expect it to work.
+
+[Open a feature request →](https://github.com/DevToys-app/DevToys/issues/new?template=feature_request.md)
+
+### 3. Submit a Pull Request
+
+Code contributions are welcome! Before opening a large PR, consider opening a feature request or discussing your approach in an existing issue to align with the project direction. When your change is ready, submit a pull request against the `main` branch on GitHub.
+
+<Note>
+  If your contribution adds or modifies one of the built-in tools (converters, formatters, generators, etc.), those live in the [DevToys.Tools](https://github.com/DevToys-app/DevToys.Tools) repository. See that repository's `CONTRIBUTING.md` for the relevant build and contribution instructions.
+</Note>
+
+### 4. Translate DevToys (Localization)
+
+DevToys uses [**Crowdin**](https://crowdin.com/project/devtoys) as its localization platform. You don't need to be familiar with the repository structure to contribute translations — Crowdin guides you through the process entirely in the browser.
+
+<Steps>
+  <Step title="Go to the Crowdin project">
+    Visit [crowdin.com/project/devtoys](https://crowdin.com/project/devtoys).
+  </Step>
+
+  <Step title="Log in or create an account">
+    Sign in with an existing account or register for free, then click **Join** to become a member of the DevToys project.
+  </Step>
+
+  <Step title="Select your language">
+    Choose from the list of languages already supported by the project and follow Crowdin's in-browser editor to translate strings.
+  </Step>
+
+  <Step title="Submit your translations">
+    Save your translations in Crowdin. They are automatically synchronized with the GitHub repository within **one hour** and a pull request is created automatically — no manual Git steps required.
+  </Step>
+</Steps>
+
+<Note>
+  If you want to add a **new language** that isn't currently listed in Crowdin, start a discussion on [Crowdin's website](https://crowdin.com/project/devtoys) or open a discussion on [GitHub](https://github.com/DevToys-app/DevToys/discussions). The maintainers will add the language to the project.
+</Note>
+
+## Code of Conduct
+
+DevToys follows the [Contributor Covenant](https://www.contributor-covenant.org) Code of Conduct. All participants — contributors, maintainers, and community members — are expected to uphold these standards in every project space.
+
+**Positive behaviors include:**
+- Demonstrating empathy and kindness toward others
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility, apologizing when appropriate, and learning from mistakes
+- Focusing on what is best for the overall community
+
+**Unacceptable behaviors include:**
+- Sexualized language, imagery, or unwanted advances
+- Trolling, insulting or derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information without their explicit permission
+- Other conduct that could reasonably be considered inappropriate in a professional setting
+
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders at [velersoftware.com](https://www.velersoftware.com/contact.php). All reports will be reviewed and investigated promptly and fairly, with full respect for the privacy of the reporter.
+
+Read the full Code of Conduct at [github.com/DevToys-app/DevToys/blob/main/CODE-OF-CONDUCT.md](https://github.com/DevToys-app/DevToys/blob/main/CODE-OF-CONDUCT.md).
+
+## Security Vulnerabilities
+
+**Do not file public GitHub Issues for security vulnerabilities.** Instead, follow the responsible disclosure process described in [`SECURITY.md`](https://github.com/DevToys-app/DevToys/blob/main/SECURITY.md) to report the issue privately to the maintainers.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build from Source" icon="hammer" href="/contributing/building">
+    Set up your development environment and build DevToys on Windows, macOS, or Linux.
+  </Card>
+  <Card title="Extensions Overview" icon="puzzle-piece" href="/extensions/overview">
+    Learn how to build your own tools and extend DevToys with the extensions API.
+  </Card>
+</CardGroup>

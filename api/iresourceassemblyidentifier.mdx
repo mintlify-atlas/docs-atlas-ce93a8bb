@@ -1,0 +1,158 @@
+---
+title: "IResourceAssemblyIdentifier Interface — DevToys Extension SDK"
+sidebarTitle: "IResourceAssemblyIdentifier"
+description: "IResourceAssemblyIdentifier exposes the fonts and resource managers for a DevToys extension assembly. Every extension must export exactly one implementation."
+---
+
+`IResourceAssemblyIdentifier` acts as the entry-point through which DevToys locates the string resources (`.resx` / `ResourceManager`) and custom fonts bundled inside your extension assembly. Every extension assembly must export **exactly one** implementation. The `[Name]` you give it is the string you reference in the `ResourceManagerAssemblyIdentifier` property of every `[ToolDisplayInformation]` attribute in that assembly — forming the link between your tool metadata and its localized strings.
+
+**Namespace:** `DevToys.Api`
+
+## Interface Declaration
+
+```csharp
+public interface IResourceAssemblyIdentifier
+{
+    ValueTask<FontDefinition[]> GetFontDefinitionsAsync();
+}
+```
+
+## Members
+
+<ParamField path="GetFontDefinitionsAsync()" type="ValueTask<FontDefinition[]>">
+  Returns an array of `FontDefinition` objects, each describing a custom font bundled as an embedded resource in your assembly. Return an empty array if you rely only on built-in fonts (e.g., `FluentSystemIcons`).
+
+  The font name you supply in `FontDefinition.FontFamily` is the value you use in the `IconFontName` property of `[ToolDisplayInformation]`, so they must match exactly.
+</ParamField>
+
+## FontDefinition
+
+`FontDefinition` pairs a font family name with a readable `Stream` pointing at the embedded font file. It implements `IDisposable` — DevToys disposes each instance after loading the font.
+
+```csharp
+public sealed class FontDefinition : IDisposable
+{
+    public FontDefinition(string fontFamily, Stream fontReader);
+
+    public string FontFamily { get; }  // Name used in IconFontName attributes
+    public Stream FontReader { get; }  // Readable stream of the TTF/OTF file
+
+    public void Dispose(); // Disposes FontReader
+}
+```
+
+<Note>
+  Only **TTF** and **OTF** font formats are supported. WOFF and WOFF2 are not supported at this time. Embed your font file as an assembly resource and open it with `Assembly.GetManifestResourceStream`.
+</Note>
+
+## Minimum Implementation (No Custom Fonts)
+
+Most extensions that use a built-in icon font (such as `FluentSystemIcons`) do not need to provide custom fonts. Return an empty array:
+
+```csharp
+[Export(typeof(IResourceAssemblyIdentifier))]
+[Name(nameof(MyResourceManagerAssemblyIdentifier))]
+public sealed class MyResourceManagerAssemblyIdentifier : IResourceAssemblyIdentifier
+{
+    public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
+    {
+        return ValueTask.FromResult(Array.Empty<FontDefinition>());
+    }
+}
+```
+
+<Warning>
+  The `[Name]` value on your `IResourceAssemblyIdentifier` export **must exactly match** the string you pass to `ResourceManagerAssemblyIdentifier` inside every `[ToolDisplayInformation]` in that assembly. A mismatch causes DevToys to fail to resolve the tool's localized strings and icon.
+</Warning>
+
+## Implementation With a Custom Font
+
+If your tool uses a custom icon glyph font or a specialized display font, embed the `.ttf` or `.otf` file in your project and stream it at runtime:
+
+```csharp
+[Export(typeof(IResourceAssemblyIdentifier))]
+[Name(nameof(MyResourceManagerAssemblyIdentifier))]
+public sealed class MyResourceManagerAssemblyIdentifier : IResourceAssemblyIdentifier
+{
+    public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+
+        // The resource name mirrors your project's default namespace + folder + filename.
+        Stream? fontStream = assembly.GetManifestResourceStream(
+            "MyProject.Assets.Fonts.MyCustomIcons.ttf");
+
+        if (fontStream is null)
+        {
+            return ValueTask.FromResult(Array.Empty<FontDefinition>());
+        }
+
+        var fontDefinition = new FontDefinition(
+            fontFamily: "MyCustomIcons",  // Must match IconFontName in [ToolDisplayInformation]
+            fontReader: fontStream);
+
+        return ValueTask.FromResult(new[] { fontDefinition });
+    }
+}
+```
+
+Then reference the font name in your tool attribute:
+
+```csharp
+[ToolDisplayInformation(
+    IconFontName = "MyCustomIcons",   // matches FontDefinition.FontFamily above
+    IconGlyph = '\uE001',
+    ResourceManagerAssemblyIdentifier = nameof(MyResourceManagerAssemblyIdentifier),
+    ResourceManagerBaseName = "MyProject.Strings",
+    ShortDisplayTitleResourceName = nameof(MyProject.Strings.ShortDisplayTitle))]
+```
+
+## Linking to ToolDisplayInformation
+
+The diagram below shows how the three values must align:
+
+```
+[Name(nameof(MyResourceManagerAssemblyIdentifier))]   ← on IResourceAssemblyIdentifier
+        ↕ must match
+ResourceManagerAssemblyIdentifier = nameof(MyResourceManagerAssemblyIdentifier)  ← in [ToolDisplayInformation]
+        ↕ resolves
+ResourceManagerBaseName = "MyProject.Strings"         ← fully-qualified resource base name
+```
+
+## IMefProvider
+
+`IMefProvider` is a companion interface that can be imported into any MEF component to dynamically resolve exports at runtime — useful when you cannot take a direct `[Import]` at construction time.
+
+```csharp
+public interface IMefProvider
+{
+    // Resolves a single exported implementation of TExport.
+    TExport Import<TExport>();
+
+    // Resolves all exported implementations of TExport with their metadata.
+    IEnumerable<Lazy<TExport, TMetadataView>> ImportMany<TExport, TMetadataView>();
+
+    // Satisfies [Import] / [ImportMany] fields on an existing object instance.
+    void SatisfyImports(object @object);
+}
+```
+
+Inject it the same way as any other DevToys service:
+
+```csharp
+[Import]
+private IMefProvider _mefProvider = null!;
+
+// Later, at runtime:
+ISettingsProvider settings = _mefProvider.Import<ISettingsProvider>();
+```
+
+<Tip>
+  Use `SatisfyImports(this)` in the constructor of a class that was created with `new` (i.e., outside of MEF) but still needs its `[Import]` fields populated by the container.
+</Tip>
+
+## See Also
+
+- [Creating a GUI Tool](/extensions/create-gui-tool)
+- [IGuiTool](/api/iguiTool)
+- [ISettingsProvider](/api/isettingsprovider)

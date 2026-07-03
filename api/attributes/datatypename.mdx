@@ -1,0 +1,171 @@
+---
+title: "DataTypeNameAttribute and AcceptedDataTypeNameAttribute Reference"
+sidebarTitle: "DataTypeName"
+description: "DataTypeNameAttribute names a detector's data type. AcceptedDataTypeNameAttribute tells DevToys which data types an IGuiTool accepts for Smart Detection routing."
+---
+
+DevToys' **Smart Detection** system automatically routes clipboard or file data to appropriate tools. Two attributes drive this mechanism: `DataTypeNameAttribute` declares what kind of data an `IDataTypeDetector` can recognise, and `AcceptedDataTypeNameAttribute` declares what named data types an `IGuiTool` is willing to receive. When a detector produces a match, DevToys highlights every tool whose accepted types include that detector's declared name.
+
+---
+
+## DataTypeNameAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `false`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+public sealed class DataTypeNameAttribute : Attribute
+```
+
+Apply this attribute to every `IDataTypeDetector` implementation to declare the name of the data type it detects.
+
+### Constructor
+
+```csharp
+public DataTypeNameAttribute(string name, string? baseName = null)
+```
+
+<ParamField path="name" type="string" required>
+  The unique name for the data type this detector produces. All tools that want to receive this data type must reference this exact string in their `[AcceptedDataTypeName]` attributes. Must be non-empty.
+</ParamField>
+
+<ParamField path="baseName" type="string?">
+  An optional parent data type name. When set, this detector's type is considered a specialisation of `baseName`. DevToys uses this to chain detection: if `baseName`'s detector already confirmed the data, this detector only needs to check the specialisation. For example, a `"jsonArray"` detector could set `baseName = "json"` to indicate it only runs after JSON detection succeeds.
+</ParamField>
+
+### Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `DataTypeName` | `string` | The declared data type name (from constructor `name`). |
+| `DataTypeBaseName` | `string?` | The optional parent type name (from constructor `baseName`). |
+
+---
+
+## AcceptedDataTypeNameAttribute
+
+**Namespace:** `DevToys.Api`  
+**Target:** `AttributeTargets.Class`  
+**AllowMultiple:** `true`
+
+```csharp
+[MetadataAttribute]
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+public sealed class AcceptedDataTypeNameAttribute : Attribute
+```
+
+Apply one or more of these attributes to an `IGuiTool` class to declare which detected data types the tool can accept. DevToys will recommend the tool and call `IGuiTool.OnDataReceived` when Smart Detection finds a matching type.
+
+### Constructor
+
+```csharp
+public AcceptedDataTypeNameAttribute(string name)
+```
+
+<ParamField path="name" type="string" required>
+  The name of the data type this tool accepts. Must match the `DataTypeName` declared by an `IDataTypeDetector` (or one of the predefined names in `PredefinedCommonDataTypeNames`). Must be non-empty.
+</ParamField>
+
+### Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `DataTypeName` | `string` | The accepted data type name (from constructor `name`). |
+
+---
+
+## Predefined Data Type Names
+
+`PredefinedCommonDataTypeNames` (namespace `DevToys.Api`) provides constants for the data types built into DevToys:
+
+| Constant | Value | Description |
+|---|---|---|
+| `PredefinedCommonDataTypeNames.Text` | `"text"` | Plain text |
+| `PredefinedCommonDataTypeNames.Json` | `"json"` | JSON document |
+| `PredefinedCommonDataTypeNames.JsonArray` | `"jsonArray"` | JSON array (child of `"json"`) |
+| `PredefinedCommonDataTypeNames.Xml` | `"xml"` | XML document |
+| `PredefinedCommonDataTypeNames.Xsd` | `"xsd"` | XSD schema |
+| `PredefinedCommonDataTypeNames.Base64Text` | `"base64Text"` | Base64-encoded text |
+| `PredefinedCommonDataTypeNames.Base64Image` | `"base64Image"` | Base64-encoded image |
+| `PredefinedCommonDataTypeNames.Image` | `"image"` | In-memory image |
+| `PredefinedCommonDataTypeNames.ImageFile` | `"imageFile"` | Image file path |
+| `PredefinedCommonDataTypeNames.File` | `"file"` | Single file |
+| `PredefinedCommonDataTypeNames.Files` | `"files"` | Multiple files |
+| `PredefinedCommonDataTypeNames.GZip` | `"gzip"` | GZip-compressed data |
+| `PredefinedCommonDataTypeNames.Date` | `"date"` | Date/time string |
+
+---
+
+## Example: Detector and Tool Wired Together
+
+The following example defines a detector that recognises CSV content, then a tool that accepts CSV and receives it via Smart Detection.
+
+```csharp
+using DevToys.Api;
+using System.ComponentModel.Composition;
+
+// ── Detector ────────────────────────────────────────────────────────────────
+
+[Export(typeof(IDataTypeDetector))]
+[DataTypeName("csv", baseName: PredefinedCommonDataTypeNames.Text)]
+public sealed class CsvDataTypeDetector : IDataTypeDetector
+{
+    public ValueTask<DataDetectionResult> TryDetectDataAsync(
+        object data,
+        DataDetectionResult? resultFromBaseDetector,
+        CancellationToken cancellationToken)
+    {
+        // Only run if the base ("text") detector already confirmed plain text.
+        if (resultFromBaseDetector?.Data is string text
+            && text.Contains(',')
+            && text.Contains('\n'))
+        {
+            return ValueTask.FromResult(
+                new DataDetectionResult(true, text));
+        }
+
+        return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+    }
+}
+
+// ── Tool ─────────────────────────────────────────────────────────────────────
+
+[Export(typeof(IGuiTool))]
+[Name("CsvViewerTool")]
+[ToolDisplayInformation(
+    GroupName                         = PredefinedCommonToolGroupNames.Text,
+    ResourceManagerAssemblyIdentifier = "MyExtension",
+    ResourceManagerBaseName           = "MyExtension.Strings.CsvStrings",
+    ShortDisplayTitleResourceName     = nameof(CsvStrings.ShortTitle),
+    IconGlyph                         = '\uE8A4',
+    IconFontName                      = "FluentSystemIcons")]
+[AcceptedDataTypeName("csv")]  // matches the detector above
+public sealed class CsvViewerTool : IGuiTool
+{
+    private readonly IUIMultiLineTextInput _output
+        = GUI.MultiLineTextInput("csv-output").ReadOnly();
+
+    public UIToolView View
+        => new UIToolView(_output);
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        // parsedData is the object returned by DataDetectionResult
+        if (parsedData is string csv)
+        {
+            _output.Text(csv);
+        }
+    }
+}
+```
+
+<Note>
+  `AllowMultiple = true` on `AcceptedDataTypeNameAttribute` means a single tool can declare multiple accepted types. Add one `[AcceptedDataTypeName(...)]` attribute per type.
+</Note>
+
+<Tip>
+  Set `DataTypeBaseName` on your detector when it refines an existing type. This lets DevToys skip your detector entirely if the parent detector did not match, improving performance.
+</Tip>

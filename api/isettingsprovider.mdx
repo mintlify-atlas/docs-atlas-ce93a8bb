@@ -1,0 +1,171 @@
+---
+title: "ISettingsProvider Interface — DevToys Extension SDK"
+sidebarTitle: "ISettingsProvider"
+description: "ISettingsProvider lets DevToys extensions read, write, and reset typed user settings with GetSetting, SetSetting, and ResetSetting using a SettingDefinition key."
+---
+
+`ISettingsProvider` is the single interface through which DevToys extensions read and write persistent user preferences. The host injects it via MEF, and your tool interacts with it through strongly-typed `SettingDefinition<T>` keys — no raw string keys, no manual serialization. Settings are persisted across app restarts and, for portable installations, stored in a `.ini` file alongside the executable.
+
+**Namespace:** `DevToys.Api`
+
+## Injection
+
+Import `ISettingsProvider` into your tool class using the standard MEF `[Import]` attribute:
+
+```csharp
+[Import]
+private ISettingsProvider _settingsProvider = null!;
+```
+
+## Interface Declaration
+
+```csharp
+public interface ISettingsProvider
+{
+    event EventHandler<SettingChangedEventArgs>? SettingChanged;
+
+    T GetSetting<T>(SettingDefinition<T> settingDefinition);
+
+    void SetSetting<T>(SettingDefinition<T> settingDefinition, T value);
+
+    void ResetSetting<T>(SettingDefinition<T> settingDefinition);
+}
+```
+
+## Members
+
+<ParamField path="SettingChanged" type="event EventHandler<SettingChangedEventArgs>?">
+  Raised whenever **any** setting in the application changes, including settings from other tools. Subscribe to this event to react to preference changes without polling.
+
+  The `SettingChangedEventArgs` carries:
+
+  | Property | Type | Description |
+  |----------|------|-------------|
+  | `SettingName` | `string` | The fully-qualified internal name of the setting that changed. |
+  | `NewValue` | `object?` | The new value, boxed as `object?`. Cast to `T` before use. |
+</ParamField>
+
+<ParamField path="GetSetting<T>(SettingDefinition<T> settingDefinition)" type="T">
+  Returns the current persisted value of the setting, or `settingDefinition.DefaultValue` if it has never been set.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `settingDefinition` | `SettingDefinition<T>` | The definition that uniquely identifies the setting. |
+</ParamField>
+
+<ParamField path="SetSetting<T>(SettingDefinition<T> settingDefinition, T value)" type="void">
+  Persists `value` for the given setting. Fires `SettingChanged` after the write completes.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `settingDefinition` | `SettingDefinition<T>` | The definition that uniquely identifies the setting. |
+  | `value` | `T` | The new value to persist. |
+</ParamField>
+
+<ParamField path="ResetSetting<T>(SettingDefinition<T> settingDefinition)" type="void">
+  Deletes the persisted value and restores the setting to `settingDefinition.DefaultValue`. Also fires `SettingChanged`.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `settingDefinition` | `SettingDefinition<T>` | The definition to reset. |
+</ParamField>
+
+## SettingDefinition&lt;T&gt;
+
+A `SettingDefinition<T>` is a lightweight `readonly struct` that acts as the key for a setting. Declare it as a `static readonly` field so it is created once and reused across all accesses.
+
+### Constructors
+
+```csharp
+// Simple — type must be natively serializable (bool, int, string, enum, etc.)
+new SettingDefinition<T>(string name, T defaultValue)
+
+// Advanced — supply custom serialize/deserialize callbacks for complex types
+new SettingDefinition<T>(string name, T defaultValue,
+    Func<T, string> serialize,
+    Func<string, T> deserialize)
+```
+
+### Naming Rules
+
+<Warning>
+  Setting names **must not** contain `=`. In portable mode, settings are stored in a `.ini` file using the format `setting_name=value`, so an `=` in the name would corrupt the file. The constructor throws `ArgumentException` if the name contains one.
+</Warning>
+
+- Use a **reverse-DNS–style prefix** (e.g., `"MyCompany.MyTool.EncodingMode"`) to avoid name collisions with other extensions.
+- Names are limited to **255 characters** including the assembly prefix that `SettingDefinition` adds automatically via stack-trace reflection.
+- The framework prefixes your `name` with the calling assembly name at construction time, so two extensions that both use `"MyToggle"` will not conflict.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | `string` | The fully-qualified internal name (assembly prefix + your name). |
+| `DefaultValue` | `T` | The value returned when the setting has never been set. |
+| `Serialize` | `Func<T, string>?` | Optional custom serializer. `null` for primitive types. |
+| `Deserialize` | `Func<string, T>?` | Optional custom deserializer. `null` for primitive types. |
+
+## SettingChangedEventArgs
+
+```csharp
+public sealed class SettingChangedEventArgs : EventArgs
+{
+    public string SettingName { get; }
+    public object? NewValue { get; }
+}
+```
+
+`SettingName` is the fully-qualified internal name (same as `SettingDefinition<T>.Name`). Use it to filter events to only the settings your tool cares about.
+
+## Full Example
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("Base64 Encoder / Decoder")]
+// ... other attributes ...
+internal sealed class Base64GuiTool : IGuiTool
+{
+    // Declare settings as static readonly fields for zero-overhead reuse.
+    private static readonly SettingDefinition<bool> s_useUtf8 =
+        new(name: "Base64EncoderDecoder.UseUtf8", defaultValue: true);
+
+    private static readonly SettingDefinition<Base64Encoding> s_encodingMode =
+        new(
+            name: "Base64EncoderDecoder.EncodingMode",
+            defaultValue: Base64Encoding.Standard,
+            serialize: e => e.ToString(),
+            deserialize: s => Enum.Parse<Base64Encoding>(s));
+
+    [Import]
+    private ISettingsProvider _settingsProvider = null!;
+
+    public UIToolView View => new UIToolView(BuildUi());
+
+    private IUIElement BuildUi()
+    {
+        bool useUtf8 = _settingsProvider.GetSetting(s_useUtf8);
+
+        return GUI.VerticalStack().WithChildren(
+            GUI.Switch()
+                .OnText("UTF-8")
+                .OffText("ASCII")
+                .On(useUtf8)
+                .OnToggle(isOn =>
+                {
+                    _settingsProvider.SetSetting(s_useUtf8, isOn);
+                }));
+    }
+
+    public void OnDataReceived(string dataTypeName, object? parsedData) { }
+}
+```
+
+<Tip>
+  Subscribe to `SettingChanged` when two tools share a setting and you want both UIs to stay in sync. Filter by comparing `args.SettingName` with `settingDefinition.Name`.
+</Tip>
+
+## See Also
+
+- [Using settings in extensions](/extensions/settings)
+- [IGuiTool](/api/iguiTool)
+- [ICommandLineTool](/api/icommandlinetool)

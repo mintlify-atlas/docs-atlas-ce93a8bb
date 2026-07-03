@@ -1,0 +1,359 @@
+---
+title: "DevToys Layout Components API Reference"
+sidebarTitle: "Layout Components"
+description: "API reference for DevToys layout components: IUIStack, IUIGrid, IUISplitGrid, IUIWrap, IUICard, UISpacing, UIOrientation, and UIGridLength."
+---
+
+Layout components are the structural building blocks of a DevToys tool UI. They do not display content themselves but organise child `IUIElement` instances in space. All layout components are created through static factory methods on the `GUI` class (namespace `DevToys.Api`) and support a fluent builder pattern — each method returns the same instance, allowing chaining.
+
+---
+
+## IUIStack
+
+A component that stacks child elements in a single line, either horizontally or vertically. This is the most common layout primitive.
+
+**Factory:**
+
+```csharp
+public static IUIStack Stack()
+public static IUIStack Stack(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Orientation` | `UIOrientation` | `Horizontal` | Direction in which children are arranged. |
+| `Spacing` | `UISpacing` | `Small` | Space between child elements. |
+| `UseMaxHeight` | `bool` | `false` | When `true`, the stack stretches to fill all available vertical space. |
+| `Children` | `IUIElement[]?` | `null` | The child elements. |
+
+### Events
+
+`OrientationChanged`, `SpacingChanged`, `ChildrenChanged`, `HeightChanged`
+
+### Fluent Methods
+
+```csharp
+// Orientation
+IUIStack Horizontal(this IUIStack element)
+IUIStack Vertical(this IUIStack element)
+
+// Spacing
+IUIStack NoSpacing(this IUIStack element)
+IUIStack SmallSpacing(this IUIStack element)
+IUIStack MediumSpacing(this IUIStack element)
+IUIStack LargeSpacing(this IUIStack element)
+
+// Height
+IUIStack UseMaxHeight(this IUIStack element)
+
+// Children
+IUIStack WithChildren(this IUIStack element, params IUIElement[] children)
+```
+
+### Example
+
+```csharp
+GUI.Stack("toolbar")
+   .Horizontal()
+   .SmallSpacing()
+   .WithChildren(
+       GUI.Button(null, "Encode").AccentAppearance(),
+       GUI.Button(null, "Decode"),
+       GUI.Switch("mode-switch"));
+```
+
+---
+
+## IUIGrid
+
+A flexible grid that arranges children into explicitly defined rows and columns. Each child is placed in a **cell** created with `GUI.Cell(...)`.
+
+**Factory:**
+
+```csharp
+public static IUIGrid Grid()
+public static IUIGrid Grid(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Rows` | `UIGridLength[]?` | `null` | Row height definitions. |
+| `Columns` | `UIGridLength[]?` | `null` | Column width definitions. |
+| `Cells` | `IUIGridCell[]?` | `null` | Cell placements. |
+| `RowSpacing` | `UISpacing` | `Small` | Vertical gap between rows. |
+| `ColumnSpacing` | `UISpacing` | `Small` | Horizontal gap between columns. |
+
+### UIGridLength
+
+`UIGridLength` describes a row height or column width. Three sizing modes are available:
+
+```csharp
+// Auto-size to content
+UIGridLength.Auto                             // => Auto
+
+// Absolute pixel size
+new UIGridLength(200)                         // => 200px
+new UIGridLength(200, UIGridUnitType.Pixel)   // => 200px
+
+// Fractional (proportional) size
+new UIGridLength(1, UIGridUnitType.Fraction)  // => 1*
+new UIGridLength(2, UIGridUnitType.Fraction)  // => 2*
+
+// Convenience via GUI static helpers
+GUI.Auto       // => UIGridLength.Auto
+GUI.Fraction(1) // => new UIGridLength(1, UIGridUnitType.Fraction)
+```
+
+A `double` can be implicitly cast to a pixel `UIGridLength`: `(UIGridLength)300.0` equals `new UIGridLength(300, UIGridUnitType.Pixel)`.
+
+### UIGridCell
+
+Cells are created with `GUI.Cell(...)` and placed into the grid via `.Cells(...)`:
+
+```csharp
+// Simple placement: row index, column index, optional child
+IUIGridCell Cell(int row, int column, IUIElement? child = null)
+
+// Explicit spans
+IUIGridCell Cell(int row, int column, int rowSpan, int columnSpan, IUIElement? child = null)
+
+// Enum-based placement (safer, compile-time-checked)
+IUIGridCell Cell<TRow, TColumn>(TRow row, TColumn column, IUIElement? child = null)
+
+// Enum-based with spans
+IUIGridCell Cell<TRow, TColumn>(TRow firstRow, TRow lastRow, TColumn firstColumn, TColumn? lastColumn = default, IUIElement? child = null)
+```
+
+Cell fluent setters: `.Row(int)`, `.Column(int)`, `.RowSpan(int)`, `.ColumnSpan(int)`, `.WithChild(IUIElement?)`
+
+### Fluent Methods
+
+```csharp
+// Row definitions
+IUIGrid Rows(this IUIGrid element, params UIGridLength[] heights)
+IUIGrid Rows<TEnum>(this IUIGrid element, params (TEnum name, UIGridLength height)[] rows)
+
+// Column definitions
+IUIGrid Columns(this IUIGrid element, params UIGridLength[] widths)
+IUIGrid Columns<TEnum>(this IUIGrid element, params (TEnum name, UIGridLength width)[] columns)
+
+// Cell placements
+IUIGrid Cells(this IUIGrid element, params IUIGridCell[] cells)
+
+// Row spacing
+IUIGrid RowNoSpacing(this IUIGrid element)
+IUIGrid RowSmallSpacing(this IUIGrid element)
+IUIGrid RowMediumSpacing(this IUIGrid element)
+IUIGrid RowLargeSpacing(this IUIGrid element)
+
+// Column spacing
+IUIGrid ColumnNoSpacing(this IUIGrid element)
+IUIGrid ColumnSmallSpacing(this IUIGrid element)
+IUIGrid ColumnMediumSpacing(this IUIGrid element)
+IUIGrid ColumnLargeSpacing(this IUIGrid element)
+```
+
+### Example with Enum-based Rows/Columns
+
+```csharp
+private enum Rows    { Top, Bottom }
+private enum Columns { Left, Right }
+
+GUI.Grid("main-grid")
+   .RowMediumSpacing()
+   .ColumnMediumSpacing()
+   .Rows(
+       (Rows.Top,    GUI.Auto),
+       (Rows.Bottom, GUI.Fraction(1)))
+   .Columns(
+       (Columns.Left,  GUI.Fraction(1)),
+       (Columns.Right, GUI.Fraction(1)))
+   .Cells(
+       GUI.Cell(Rows.Top, Columns.Left, Columns.Right,
+           child: GUI.Label(null, "Header").Style(UILabelStyle.Subtitle)),
+       GUI.Cell(Rows.Bottom, Columns.Left,
+           child: GUI.MultiLineTextInput("left-input")),
+       GUI.Cell(Rows.Bottom, Columns.Right,
+           child: GUI.MultiLineTextInput("right-output").ReadOnly()));
+```
+
+---
+
+## IUISplitGrid
+
+A two-pane layout that divides an area into left/right or top/bottom cells separated by a draggable gutter. This is ideal for side-by-side editor/output panels.
+
+**Factory:**
+
+```csharp
+public static IUISplitGrid SplitGrid()
+public static IUISplitGrid SplitGrid(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Orientation` | `UIOrientation` | `Vertical` | `Vertical` splits left/right; `Horizontal` splits top/bottom. |
+| `MinimumCellLength` | `int` | `50` | Minimum pane size in pixels. |
+| `LeftOrTopCellLength` | `UIGridLength` | `1*` | Size of the left or top pane. `Auto` is not supported. |
+| `RightOrBottomCellLength` | `UIGridLength` | `1*` | Size of the right or bottom pane. `Auto` is not supported. |
+| `LeftOrTopCellContent` | `IUIElement?` | `null` | Element in the left/top pane. |
+| `RightOrBottomCellContent` | `IUIElement?` | `null` | Element in the right/bottom pane. |
+
+### Fluent Methods
+
+```csharp
+// Orientation
+IUISplitGrid Vertical(this IUISplitGrid element)
+IUISplitGrid Horizontal(this IUISplitGrid element)
+
+// Pane sizes
+IUISplitGrid LeftPaneLength(this IUISplitGrid element, UIGridLength length)
+IUISplitGrid RightPaneLength(this IUISplitGrid element, UIGridLength length)
+IUISplitGrid TopPaneLength(this IUISplitGrid element, UIGridLength length)
+IUISplitGrid BottomPaneLength(this IUISplitGrid element, UIGridLength length)
+
+// Pane content
+IUISplitGrid WithLeftPaneChild(this IUISplitGrid element, IUIElement? child)
+IUISplitGrid WithRightPaneChild(this IUISplitGrid element, IUIElement? child)
+IUISplitGrid WithTopPaneChild(this IUISplitGrid element, IUIElement? child)
+IUISplitGrid WithBottomPaneChild(this IUISplitGrid element, IUIElement? child)
+
+// Minimum pane size
+IUISplitGrid MinimumLength(this IUISplitGrid element, int minimumLength)
+```
+
+### Example
+
+```csharp
+GUI.SplitGrid("editor-split")
+   .Vertical()
+   .LeftPaneLength(GUI.Fraction(1))
+   .RightPaneLength(GUI.Fraction(1))
+   .WithLeftPaneChild(
+       GUI.MultiLineTextInput("input").Language("json"))
+   .WithRightPaneChild(
+       GUI.MultiLineTextInput("output").ReadOnly());
+```
+
+<Note>
+  `UIGridLength.Auto` is **not** supported as a pane length in `IUISplitGrid`. Use `Fraction` or pixel values only.
+</Note>
+
+---
+
+## IUIWrap
+
+A wrap panel that lays out children horizontally and automatically flows them into additional rows when space runs out. Useful for tag displays or button toolbars that should reflow at narrow widths.
+
+**Factory:**
+
+```csharp
+public static IUIWrap Wrap()
+public static IUIWrap Wrap(string? id)
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Spacing` | `UISpacing` | `Small` | Space between each child element. |
+| `Children` | `IUIElement[]?` | `null` | The child elements to wrap. |
+
+### Fluent Methods
+
+```csharp
+IUIWrap WithChildren(this IUIWrap element, params IUIElement[] children)
+IUIWrap NoSpacing(this IUIWrap element)
+IUIWrap SmallSpacing(this IUIWrap element)
+IUIWrap MediumSpacing(this IUIWrap element)
+IUIWrap LargeSpacing(this IUIWrap element)
+```
+
+### Example
+
+```csharp
+GUI.Wrap("tag-list")
+   .SmallSpacing()
+   .WithChildren(
+       GUI.Button(null, "JSON"),
+       GUI.Button(null, "YAML"),
+       GUI.Button(null, "TOML"),
+       GUI.Button(null, "XML"));
+```
+
+---
+
+## IUICard
+
+A decorative wrapper that applies card-style styling (border, background, padding) to a single child element. Use it to visually separate a section of the tool UI.
+
+**Factory:**
+
+```csharp
+public static IUICard Card(IUIElement uiElement)
+public static IUICard Card(string? id, IUIElement uiElement)
+```
+
+The wrapped element is provided at construction time and cannot be changed after creation.
+
+### Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `UIElement` | `IUIElement` | The single child element displayed inside the card. |
+
+### Example
+
+```csharp
+GUI.Card(
+    GUI.Stack()
+       .Vertical()
+       .MediumSpacing()
+       .WithChildren(
+           GUI.Label(null, "Options").Style(UILabelStyle.Subtitle),
+           GUI.Switch("indent-switch").Title("Indent output")));
+```
+
+---
+
+## Supporting Enums
+
+### UISpacing
+
+```csharp
+public enum UISpacing
+{
+    None   = 0,  // No space — for tightly coupled elements
+    Small  = 1,  // Small gap — for elements in the same group
+    Medium = 2,  // Medium gap — between groups of elements
+    Large  = 3   // Large gap — between distinct sections
+}
+```
+
+### UIOrientation
+
+```csharp
+[Flags]
+public enum UIOrientation
+{
+    Horizontal = 1,
+    Vertical   = 2
+}
+```
+
+### UIGridUnitType
+
+```csharp
+public enum UIGridUnitType
+{
+    Auto     = 0,  // Size to content
+    Pixel    = 1,  // Fixed device-independent pixels
+    Fraction = 2   // Proportional share of remaining space
+}
+```

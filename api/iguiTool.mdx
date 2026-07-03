@@ -1,0 +1,98 @@
+---
+title: "IGuiTool Interface — DevToys Extension SDK"
+sidebarTitle: "IGuiTool"
+description: "IGuiTool defines the contract for a DevToys GUI tool extension: provide a UIToolView and handle incoming Smart Detection data via OnDataReceived."
+---
+
+`IGuiTool` is the core interface every DevToys GUI extension must implement. It signals to the DevToys host that your class is a graphical tool, requires you to expose a root `UIToolView` that becomes the tool's UI, and optionally lets Smart Detection route clipboard-detected data directly into your tool via `OnDataReceived`. Every implementation must be exported with MEF attributes that supply display metadata, icons, grouping, and optional platform restrictions.
+
+**Namespace:** `DevToys.Api`
+
+## Interface Declaration
+
+```csharp
+public interface IGuiTool
+{
+    UIToolView View { get; }
+
+    void OnDataReceived(string dataTypeName, object? parsedData);
+}
+```
+
+## Members
+
+<ParamField path="View" type="UIToolView" required>
+  Gets the root view for the tool. This property is called once when the user first navigates to your tool. Return a `UIToolView` instance that wraps your top-level `IUIElement` layout.
+
+  Set `IsScrollable = false` on the returned `UIToolView` when your tool should fill the available window space rather than scroll (for example, a diff viewer or a canvas-based tool).
+</ParamField>
+
+<ParamField path="OnDataReceived(string dataTypeName, object? parsedData)" type="void">
+  Invoked when the app has detected clipboard data whose type is compatible with this tool and the user has navigated to the tool. The expected behavior is to push `parsedData` into the appropriate `IUIElement` that accepts it.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `dataTypeName` | `string` | The data type name as declared by `[AcceptedDataTypeName]` on this tool. |
+  | `parsedData` | `object?` | The parsed value returned by the matching `IDataTypeDetector`. May be `null`. |
+</ParamField>
+
+<Note>
+  `OnDataReceived` is only called for data type names you explicitly declare on your tool class using `[AcceptedDataTypeName("...")]`. Without that attribute the method is never invoked.
+</Note>
+
+## Full Example
+
+The snippet below shows every optional attribute you can apply alongside the two required MEF attributes (`[Export]` and `[Name]`).
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("Base64 Encoder / Decoder")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\u0108',
+    GroupName = "Encoders / Decoders",
+    ResourceManagerAssemblyIdentifier = nameof(MyResourceManagerAssemblyIdentifier),  // see IResourceAssemblyIdentifier
+    ResourceManagerBaseName = "MyProject.Strings",
+    ShortDisplayTitleResourceName = nameof(MyProject.Strings.ShortDisplayTitle),
+    LongDisplayTitleResourceName = nameof(MyProject.Strings.LongDisplayTitle),         // Optional
+    DescriptionResourceName = nameof(MyProject.Strings.Description),                   // Optional
+    AccessibleNameResourceName = nameof(MyProject.Strings.AccessibleName),             // Optional
+    SearchKeywordsResourceName = nameof(MyProject.Strings.SearchKeywords))]            // Optional
+[TargetPlatform(Platform.Windows)]   // Optional — restrict to specific platforms
+[TargetPlatform(Platform.WASM)]      // Optional — stack multiple platforms as needed
+[Order(Before = "Base64 Image Decoder")]  // Optional — relative ordering in the sidebar
+[MenuPlacement(MenuPlacement.Footer)]     // Optional — pin to the footer menu
+[NotSearchable]          // Optional — exclude from the search index
+[NotFavorable]           // Optional — prevent user from favoriting this tool
+[NoCompactOverlaySupport] // Optional — disable compact/overlay window mode
+internal sealed class Base64GuiTool : IGuiTool
+{
+    public UIToolView View
+        => new UIToolView(
+               isScrollable: true,
+               GUI.VerticalStack()
+                   .WithChildren(/* your UI elements */));
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        // Push parsedData into the relevant input element.
+    }
+}
+```
+
+## Implementation Notes
+
+- **Resource assembly** — The `ResourceManagerAssemblyIdentifier` property on `[ToolDisplayInformation]` must match the `[Name]` value of your exported `IResourceAssemblyIdentifier`. See [IResourceAssemblyIdentifier](/api/iresourceassemblyidentifier) for details.
+- **UIToolView scrollability** — Constructors `new UIToolView(isScrollable, rootElement)` let you opt out of scrolling. Tools like editors or split-pane viewers typically set `isScrollable: false`.
+- **Smart Detection** — To receive data, also decorate your tool with `[AcceptedDataTypeName("your-type")]`. The matching detector's parsed result is passed as `parsedData`.
+
+<Tip>
+  Prefer injecting `ISettingsProvider` via MEF `[Import]` inside your tool class to persist user preferences (encoding mode, line endings, etc.) across sessions. See [ISettingsProvider](/api/isettingsprovider).
+</Tip>
+
+## See Also
+
+- [Creating a GUI Tool](/extensions/create-gui-tool)
+- [UIToolView component](/api/components/uitoolview)
+- [IDataTypeDetector](/api/idatatypedetector)
+- [IResourceAssemblyIdentifier](/api/iresourceassemblyidentifier)

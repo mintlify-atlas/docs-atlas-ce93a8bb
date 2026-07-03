@@ -1,0 +1,111 @@
+---
+title: "DevToys Extension SDK: Build Custom Developer Tools"
+sidebarTitle: "Overview"
+description: "The DevToys extension SDK lets you build GUI and CLI tools using IGuiTool and ICommandLineTool, packaged as .devtoys NuGet files and installed via the Extensions Manager."
+---
+
+DevToys is built on an open, MEF-based extensibility model. Any developer can ship a `.devtoys` file — a standard NuGet package renamed with that extension — and DevToys will load it automatically at startup alongside the built-in tools. Extensions can add GUI tools, CLI tools, Smart Detection detectors, custom tool groups, and more, all through the same `DevToys.Api` contracts used by the app itself.
+
+## What is an Extension?
+
+An extension is a **.NET class library** targeting `net8.0` that references the `DevToys.Api` NuGet package and exports [MEF (Managed Extensibility Framework)](https://learn.microsoft.com/en-us/dotnet/framework/mef/) components. When DevToys starts, it scans its `Plugins` folder for `.devtoys` files, extracts them, and uses MEF to discover every exported type inside them.
+
+Because the extension model is pure MEF, you use familiar `[Export]` and `[Import]` attributes throughout — there is no custom plugin registration API to learn.
+
+```csharp
+// Minimal MEF wiring for a GUI tool
+[Export(typeof(IGuiTool))]
+[Name("MyTool")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uE108',
+    GroupName = PredefinedCommonToolGroupNames.Converters,
+    ResourceManagerAssemblyIdentifier = nameof(MyResourceAssemblyIdentifier),
+    ResourceManagerBaseName = "MyProject.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortDisplayTitle))]
+internal sealed class MyGuiTool : IGuiTool
+{
+    public UIToolView View => new(GUI.Stack().Vertical());
+    public void OnDataReceived(string dataTypeName, object? parsedData) { }
+}
+```
+
+## Two Kinds of Tools
+
+<CardGroup cols={2}>
+  <Card title="GUI Tool" icon="desktop" href="/extensions/create-gui-tool">
+    Implements `IGuiTool`. Renders an interactive `UIToolView` inside the DevToys window, built entirely with the `GUI.*` fluent factory API. Supports Smart Detection — the app can automatically route clipboard data to your tool.
+  </Card>
+  <Card title="CLI Tool" icon="terminal" href="/extensions/create-cli-tool">
+    Implements `ICommandLineTool`. Exposes a sub-command through the DevToys CLI (`devtoys.cli`). Decorated with `[CommandName]` and `[CommandLineOption]` properties; returns an integer exit code from `InvokeAsync`.
+  </Card>
+</CardGroup>
+
+<Note>
+A single extension assembly can export **both** an `IGuiTool` and an `ICommandLineTool` for the same feature. This is the recommended pattern: users get a graphical experience in the desktop app and a scriptable interface from the terminal.
+</Note>
+
+## How Extensions Are Loaded
+
+DevToys looks for `.devtoys` files in the per-user **Plugins** folder at startup. Each file is a `.nupkg` renamed to `.devtoys`; DevToys extracts it and loads all assemblies it finds inside. The process is:
+
+1. App starts and scans the Plugins folder.
+2. Each `.devtoys` package is extracted to a temporary installation directory.
+3. MEF composes the extension assemblies together with the host.
+4. Every `[Export]`-decorated type becomes available in the app — new menu items, CLI commands, and detectors appear immediately.
+
+<Warning>
+DevToys must be **restarted** after installing or uninstalling an extension. The Extensions Manager will show an informational banner reminding you to restart.
+</Warning>
+
+## IResourceAssemblyIdentifier
+
+Every extension assembly must export exactly one `IResourceAssemblyIdentifier` implementation. The app uses this to resolve localized strings from your `.resx` files and to load any custom fonts you bundle.
+
+```csharp
+[Export(typeof(IResourceAssemblyIdentifier))]
+[Name(nameof(MyResourceAssemblyIdentifier))]
+public sealed class MyResourceAssemblyIdentifier : IResourceAssemblyIdentifier
+{
+    public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
+        => ValueTask.FromResult(Array.Empty<FontDefinition>());
+}
+```
+
+The `Name` you give this class must match the `ResourceManagerAssemblyIdentifier` property of every `[ToolDisplayInformation]` attribute in your assembly.
+
+## Key Attributes at a Glance
+
+Every exported component uses a consistent set of MEF metadata attributes. The table below summarizes the most important ones; follow the links in the sidebar for full per-topic documentation.
+
+| Attribute | Applies to | Purpose |
+|---|---|---|
+| `[Name("...")]` | All exports | Sets the unique internal component name used by `[Order]` and cross-component references |
+| `[ToolDisplayInformation(...)]` | `IGuiTool` | Icon, group, localized strings for the sidebar entry |
+| `[CommandName(...)]` | `ICommandLineTool` | CLI sub-command name, alias, and description |
+| `[TargetPlatform(Platform.X)]` | Any export | Restricts the component to Windows, macOS, or Linux; omit to support all platforms |
+| `[Order(Before/After = "...")]` | `IGuiTool`, `GuiToolGroup` | Controls the sort position relative to another named component |
+| `[MenuPlacement(MenuPlacement.Footer)]` | `IGuiTool` | Moves the sidebar entry to the footer instead of the body |
+| `[NotSearchable]` | `IGuiTool` | Excludes the tool from the search index |
+| `[NotFavorable]` | `IGuiTool` | Prevents the tool from being added to favorites |
+| `[NoCompactOverlaySupport]` | `IGuiTool` | Disables Compact Overlay (picture-in-picture) mode for the tool |
+
+## Explore the Extension SDK
+
+<CardGroup cols={2}>
+  <Card title="GUI Tool" icon="window" href="/extensions/create-gui-tool">
+    Build a full interactive tool with `IGuiTool` and the `GUI.*` fluent API.
+  </Card>
+  <Card title="CLI Tool" icon="terminal" href="/extensions/create-cli-tool">
+    Expose your tool on the command line with `ICommandLineTool`.
+  </Card>
+  <Card title="Smart Detection" icon="magnifying-glass" href="/extensions/smart-detection">
+    Automatically route clipboard content to your tool with `IDataTypeDetector`.
+  </Card>
+  <Card title="Settings" icon="gear" href="/extensions/settings">
+    Persist user preferences with `SettingDefinition` and `ISettingsProvider`.
+  </Card>
+  <Card title="Publish" icon="upload" href="/extensions/publish">
+    Package your extension as a `.devtoys` file and share it on NuGet.org.
+  </Card>
+</CardGroup>

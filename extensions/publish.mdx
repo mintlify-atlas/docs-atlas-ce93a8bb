@@ -1,0 +1,137 @@
+---
+title: "Package and Publish a DevToys Extension"
+sidebarTitle: "Publish"
+description: "Build a .devtoys extension package from your .NET class library, install it locally via the DevToys Extensions Manager, and share it on NuGet.org."
+---
+
+A DevToys extension is distributed as a `.devtoys` file — which is simply a standard NuGet package (`.nupkg`) renamed with the `.devtoys` extension. You build it with the regular `dotnet pack` command, rename the output, and either install it locally by dropping it onto the DevToys window or publish it to NuGet.org so anyone can find and install it from within the Extensions Manager.
+
+## What is a .devtoys File?
+
+A `.devtoys` file is a `.nupkg` archive renamed to `.devtoys`. DevToys extracts it at installation time exactly as NuGet would — reading the `.nuspec` manifest, placing assemblies in the plugins folder, and recording the version for update checking. Because it is a valid NuGet package underneath, you can also distribute it directly on [NuGet.org](https://www.nuget.org/) and users can search for it by the `devtoys-app` tag from within the Extensions Manager.
+
+<Steps>
+
+### Configure your .csproj for packaging
+
+Add the required NuGet metadata to your class library's project file. At minimum you need `Version`, `Authors`, `Description`, and the `devtoys-app` package tag. The tag is what the Extensions Manager uses when it queries NuGet.org for available extensions.
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+
+    <!-- NuGet package metadata -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0</Version>
+    <Authors>YourName</Authors>
+    <Description>A DevToys extension that does something awesome.</Description>
+    <PackageTags>devtoys-app</PackageTags>
+
+    <!-- Optional but recommended -->
+    <PackageProjectUrl>https://github.com/yourname/your-extension</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourname/your-extension</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <Copyright>Copyright © 2024 YourName</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DevToys.Api" Version="*" />
+  </ItemGroup>
+
+  <!-- Include optional assets in the package -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="icon.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+</Project>
+```
+
+<Tip>
+Use **semantic versioning** (`MAJOR.MINOR.PATCH`). The Extensions Manager compares version numbers to detect available updates and shows a notification badge when a newer version is published to NuGet.org.
+</Tip>
+
+### Build in Release mode
+
+Run `dotnet pack` with the `Release` configuration. The output `.nupkg` is placed in `bin/Release/` by default.
+
+```bash
+dotnet pack -c Release
+```
+
+If you set `<GeneratePackageOnBuild>true</GeneratePackageOnBuild>` (recommended), the package is also produced automatically by `dotnet build -c Release`.
+
+### Rename the .nupkg to .devtoys
+
+```bash
+# Linux / macOS
+mv bin/Release/MyExtension.1.0.0.nupkg bin/Release/MyExtension.1.0.0.devtoys
+
+# Windows (PowerShell)
+Rename-Item bin\Release\MyExtension.1.0.0.nupkg MyExtension.1.0.0.devtoys
+```
+
+The `.devtoys` file is now ready to install or distribute.
+
+### Install locally
+
+There are two ways to install a `.devtoys` file locally:
+
+<Tabs>
+  <Tab title="Drag and drop">
+    Drag the `.devtoys` file from Explorer / Finder directly onto the **DevToys window**. DevToys will display a third-party extension warning dialog, then install the extension.
+  </Tab>
+  <Tab title="Extensions Manager">
+    1. Open DevToys and click the **wrench icon** (Extensions Manager) in the footer of the left sidebar.
+    2. Click **Install Extension**.
+    3. Browse to your `.devtoys` file and confirm.
+  </Tab>
+</Tabs>
+
+<Warning>
+You must **restart DevToys** after installing an extension. The Extensions Manager will display a "Restart required" info bar as a reminder.
+</Warning>
+
+### Publish to NuGet.org
+
+Publishing your extension to NuGet.org makes it discoverable from the Extensions Manager's **Find more extensions online** button, which opens `https://www.nuget.org/packages?q=Tags%3A%22devtoys-app%22`.
+
+```bash
+# Push the .nupkg (not the .devtoys) to NuGet.org
+dotnet nuget push bin/Release/MyExtension.1.0.0.nupkg \
+    --api-key YOUR_NUGET_API_KEY \
+    --source https://api.nuget.org/v3/index.json
+```
+
+Once the package is indexed (usually within minutes), users can find your extension by searching for it inside the Extensions Manager without leaving DevToys.
+
+<Tip>
+Keep the `.nupkg` alongside the `.devtoys` in your GitHub release assets. Power users who want to install manually can grab the `.devtoys` file, while NuGet.org works off the standard `.nupkg`.
+</Tip>
+
+</Steps>
+
+## Extensions Manager Overview
+
+The **Extensions Manager** is a built-in DevToys GUI tool (`[MenuPlacement(MenuPlacement.Footer)]`) that shows all installed extensions with their version, description, and installation size. From it you can:
+
+- **Install** a `.devtoys` file from disk.
+- **Uninstall** any installed extension (takes effect after restart).
+- **Update** an extension — clicking the update button navigates to the extension's NuGet.org page so you can download the new `.devtoys` file.
+- **Find more extensions online** — opens NuGet.org filtered to the `devtoys-app` tag.
+
+The Extensions Manager is available on Windows, macOS, and Linux.
+
+## Terms and Conditions
+
+Before the Extensions Manager installs any extension, it displays a warning dialog that links to the [DevToys Extensions Terms and Conditions](https://github.com/DevToys-app/DevToys/blob/main/EXTENSIONS-TERM-AND-CONDITIONS.md). By publishing an extension, you agree that it complies with those terms. Key points:
+
+- Extensions must not be malicious or deceptive.
+- Extensions must not harvest or transmit user data without explicit consent.
+- Extensions that violate the terms may be removed from the NuGet.org feed featured by the Extensions Manager.
+
+<Warning>
+Always review the [EXTENSIONS-TERM-AND-CONDITIONS.md](https://github.com/DevToys-app/DevToys/blob/main/EXTENSIONS-TERM-AND-CONDITIONS.md) file before publishing your extension to NuGet.org.
+</Warning>

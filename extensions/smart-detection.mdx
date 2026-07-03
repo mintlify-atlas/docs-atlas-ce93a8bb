@@ -1,0 +1,199 @@
+---
+title: "Smart Detection: Auto-Route Clipboard Data to Tools"
+sidebarTitle: "Smart Detection"
+description: "Implement IDataTypeDetector and use AcceptedDataTypeNameAttribute so DevToys automatically offers your tool when matching data is detected on the clipboard."
+---
+
+Smart Detection is DevToys' ability to watch the system clipboard and automatically suggest the right tool for whatever the user just copied. When you copy a JSON string, DevToys immediately offers the JSON Formatter. When you copy a Base64 string, the Base64 Decoder lights up. You can plug your own tool into this pipeline by implementing `IDataTypeDetector` and tagging your `IGuiTool` with `[AcceptedDataTypeName]`.
+
+## How the Pipeline Works
+
+1. The user copies something to the OS clipboard.
+2. DevToys reads the clipboard content and passes it as `rawData` to every registered `IDataTypeDetector`.
+3. Detectors that declare a `baseName` in `[DataTypeName]` only run **after** the parent detector has already succeeded — the parent's result is passed in as `resultFromBaseDetector`.
+4. Each detector returns a `DataDetectionResult`. If `Success` is `true`, DevToys marks the tool(s) that declared `[AcceptedDataTypeName("your-type")]` as recommended.
+5. When the user navigates to one of those recommended tools, `IGuiTool.OnDataReceived` is called with the `dataTypeName` and the `Data` object your detector returned.
+
+The cancellation token passed to `TryDetectDataAsync` expires in **2 seconds**. Detectors must be fast; avoid blocking I/O or expensive computation.
+
+## Two Sides of the Contract
+
+### 1 · The Detector
+
+Implement `IDataTypeDetector` and export it with `[DataTypeName]`:
+
+```csharp
+[Export(typeof(IDataTypeDetector))]
+[DataTypeName("my-jwt", baseName: PredefinedCommonDataTypeNames.Json)]
+internal sealed class JwtDetector : IDataTypeDetector
+{
+    public ValueTask<DataDetectionResult> TryDetectDataAsync(
+        object rawData,
+        DataDetectionResult? resultFromBaseDetector,
+        CancellationToken cancellationToken)
+    {
+        // Only run if the parent "json" detector already succeeded.
+        if (resultFromBaseDetector is not { Success: true })
+            return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+
+        string text = rawData.ToString() ?? string.Empty;
+
+        // A JWT has exactly three Base64Url segments separated by dots.
+        string[] parts = text.Trim().Split('.');
+        if (parts.Length != 3)
+            return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+
+        // Try to parse the header.
+        try
+        {
+            string headerJson = Base64UrlDecode(parts[0]);
+            // Pass the decoded header to OnDataReceived via DataDetectionResult.Data.
+            return ValueTask.FromResult(new DataDetectionResult(true, headerJson));
+        }
+        catch
+        {
+            return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+        }
+    }
+
+    private static string Base64UrlDecode(string input)
+    {
+        string padded = input.Replace('-', '+').Replace('_', '/');
+        padded = padded.PadRight(padded.Length + (4 - padded.Length % 4) % 4, '=');
+        return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(padded));
+    }
+}
+```
+
+`[DataTypeName]` constructor parameters:
+
+| Parameter | Description |
+|---|---|
+| `name` | A unique string identifying the data type your detector recognises (e.g., `"my-jwt"`). |
+| `baseName` _(optional)_ | The name of a parent detector type. If supplied, your detector only runs when the parent detector has already returned a successful result. |
+
+### 2 · Tool Acceptance
+
+Tell DevToys which data type(s) your `IGuiTool` accepts by applying `[AcceptedDataTypeName]`. The attribute can be applied multiple times if your tool handles more than one type:
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.JwtDecoder")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uF4E3',
+    GroupName = PredefinedCommonToolGroupNames.EncodersDecoders,
+    ResourceManagerAssemblyIdentifier = nameof(MyExtensionResourceAssemblyIdentifier),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortDisplayTitle))]
+[AcceptedDataTypeName("my-jwt")]                              // custom type
+[AcceptedDataTypeName(PredefinedCommonDataTypeNames.Json)]   // also accept plain JSON
+internal sealed class JwtDecoderGuiTool : IGuiTool
+{
+    private readonly IUIMultiLineTextInput _input = GUI.MultiLineTextInput("jwt-input");
+    private readonly IUIMultiLineTextInput _output = GUI.MultiLineTextInput("jwt-output");
+
+    public UIToolView View
+        => new(
+            GUI.Stack()
+               .Vertical()
+               .MediumSpacing()
+               .WithChildren(
+                   _input.Title("JWT Token").OnTextChanged(Decode),
+                   _output.Title("Header (decoded)").ReadOnly()));
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        if (dataTypeName == "my-jwt" && parsedData is string headerJson)
+        {
+            // The JwtDetector passed back the decoded header — use it directly.
+            _output.Text(headerJson);
+        }
+        else if (dataTypeName == PredefinedCommonDataTypeNames.Json && parsedData is string json)
+        {
+            _input.Text(json);
+        }
+    }
+
+    private void Decode(string jwt)
+    {
+        // ... decode and update _output ...
+    }
+}
+```
+
+## DataDetectionResult
+
+`DataDetectionResult` is a simple record:
+
+```csharp
+public record DataDetectionResult(bool Success, object? Data);
+```
+
+| Member | Description |
+|---|---|
+| `Success` | `true` when detection succeeded; `false` otherwise. |
+| `Data` | Arbitrary parsed object passed to `OnDataReceived`. Can be `null`. |
+| `DataType` | Convenience property returning `Data?.GetType()`. |
+| `DataDetectionResult.Unsuccessful` | Pre-built static instance for `(false, null)` — return this when detection fails. |
+
+The object you set in `Data` travels untouched to `IGuiTool.OnDataReceived`. Use it to pass already-parsed data (e.g., a decoded `JsonDocument`) so the tool does not have to re-parse the raw string.
+
+## Predefined Data Type Names
+
+DevToys ships built-in detectors for the following types. You can declare any of them as `baseName` in your own `[DataTypeName]` to build on top of existing parsing, or use them directly in `[AcceptedDataTypeName]` without writing a detector at all.
+
+| Constant | String value | Description |
+|---|---|---|
+| `PredefinedCommonDataTypeNames.Text` | `"text"` | Plain text (any clipboard string) |
+| `PredefinedCommonDataTypeNames.Json` | `"json"` | Valid JSON object |
+| `PredefinedCommonDataTypeNames.JsonArray` | `"jsonArray"` | Valid JSON array |
+| `PredefinedCommonDataTypeNames.Xml` | `"xml"` | Valid XML document |
+| `PredefinedCommonDataTypeNames.Xsd` | `"xsd"` | Valid XML Schema (XSD) |
+| `PredefinedCommonDataTypeNames.Base64Text` | `"base64Text"` | Base64-encoded text |
+| `PredefinedCommonDataTypeNames.Base64Image` | `"base64Image"` | Base64-encoded image |
+| `PredefinedCommonDataTypeNames.Image` | `"image"` | Raw image data |
+| `PredefinedCommonDataTypeNames.ImageFile` | `"imageFile"` | Path to an image file |
+| `PredefinedCommonDataTypeNames.File` | `"file"` | Path to a single file |
+| `PredefinedCommonDataTypeNames.Files` | `"files"` | Paths to multiple files |
+| `PredefinedCommonDataTypeNames.GZip` | `"gzip"` | GZip-compressed data |
+| `PredefinedCommonDataTypeNames.Date` | `"date"` | A parseable date/time string |
+
+<Tip>
+Inherit from an existing type by setting `baseName` instead of reimplementing detection from scratch. For example, a YAML-to-JSON converter could declare `baseName: "text"` to ensure it only runs when there is text on the clipboard, without writing its own clipboard-read logic.
+</Tip>
+
+## How OnDataReceived Fits In
+
+When the user clicks on a Smart Detection suggestion, DevToys calls `OnDataReceived` on the `IGuiTool`:
+
+```csharp
+void OnDataReceived(string dataTypeName, object? parsedData);
+```
+
+- `dataTypeName` — the `DataTypeName` string from `[DataTypeName]` on the detector that matched.
+- `parsedData` — the `Data` object from the `DataDetectionResult` returned by that detector.
+
+Route the data to the appropriate UI element based on `dataTypeName`:
+
+```csharp
+public void OnDataReceived(string dataTypeName, object? parsedData)
+{
+    switch (dataTypeName)
+    {
+        case "my-jwt":
+            if (parsedData is string header)
+                _headerOutput.Text(header);
+            break;
+
+        case PredefinedCommonDataTypeNames.Text:
+            if (parsedData is string text)
+                _jwtInput.Text(text);
+            break;
+    }
+}
+```
+
+<Note>
+`OnDataReceived` is only called when the user **navigates to** a suggested tool, not at detection time. The detection pipeline runs in the background continuously; the `parsedData` from the most recent detection is buffered and delivered on navigation.
+</Note>

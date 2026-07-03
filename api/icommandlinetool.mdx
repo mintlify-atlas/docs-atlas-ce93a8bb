@@ -1,0 +1,114 @@
+---
+title: "ICommandLineTool Interface — DevToys Extension SDK"
+sidebarTitle: "ICommandLineTool"
+description: "ICommandLineTool defines the contract for a DevToys CLI tool: implement InvokeAsync to receive parsed options and return an integer exit code."
+---
+
+`ICommandLineTool` is the interface you implement to add a command-line subcommand to the DevToys CLI. When a user invokes `devtoys <command>`, the framework resolves your exported implementation, populates any properties decorated with `[CommandLineOption]` from the parsed arguments, and calls `InvokeAsync`. Return a standard Unix-style exit code (`0` for success, non-zero for failure) to signal the outcome to the calling shell.
+
+**Namespace:** `DevToys.Api`
+
+## Interface Declaration
+
+```csharp
+public interface ICommandLineTool
+{
+    ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken);
+}
+```
+
+## Members
+
+<ParamField path="InvokeAsync(ILogger logger, CancellationToken cancellationToken)" type="ValueTask<int>">
+  Invoked when the user runs the CLI app using the command and options defined by this tool. Perform your work here and return an integer exit code when complete.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `logger` | `ILogger` | A logger for reporting telemetry about the health and performance of the tool. See logging guidelines below. |
+  | `cancellationToken` | `CancellationToken` | Gets canceled when the user wants to quit the app (e.g., Ctrl+C). Honour it promptly for a responsive CLI experience. |
+
+  **Return value:** An `int` exit code wrapped in a `ValueTask<int>`. Return `0` to indicate success.
+</ParamField>
+
+## ILogger Usage Guidelines
+
+The `logger` parameter is intended for operational telemetry, not user-facing output. Follow these rules from the source documentation:
+
+| Rule | Guidance |
+|------|----------|
+| ✅ DO | Report errors with `logger.LogError(...)` |
+| ✅ DO | Report performance timing of significant tasks |
+| ✅ DO | Log relevant system information that helps diagnose compatibility issues |
+| ❌ DO NOT | Log user input — it may contain personally identifiable information |
+
+<Warning>
+  Never pass user-supplied data (file contents, clipboard text, option values, etc.) to the `logger`. Log only diagnostic metadata such as file size, elapsed time, or detected encoding.
+</Warning>
+
+## CancellationToken
+
+The `cancellationToken` is canceled when the user signals they want to quit (typically Ctrl+C on the terminal). Pass it through to any async I/O, network calls, or long-running loops so your tool exits cleanly without leaving zombie processes.
+
+## Full Example
+
+The example below registers a `base64` command with a `--file` / `-f` required option and an optional `--utf8` boolean flag.
+
+```csharp
+[Export(typeof(ICommandLineTool))]
+[Name("Base64 Encode / Decoder")]
+[CommandName(
+    Name = "base64",
+    Alias = "b64",
+    DescriptionResourceName = nameof(Strings.Base64Description),
+    ResourceManagerBaseName = "MyProject.Strings")]
+[TargetPlatform(Platform.Windows)]  // Optional — restrict to specific platforms
+[TargetPlatform(Platform.MacOS)]    // Optional — stack multiple as needed
+internal sealed class Base64CommandLineTool : ICommandLineTool
+{
+    [CommandLineOption(
+        Name = "file",
+        Alias = "f",
+        IsRequired = true,
+        DescriptionResourceName = nameof(Strings.Base64FileOptionDescription))]
+    internal FileInfo? File { get; set; }
+
+    [CommandLineOption(
+        Name = "utf8",
+        DescriptionResourceName = nameof(Strings.Utf8OptionDescription))]
+    internal bool Utf8 { get; set; } = true; // Default value is true.
+
+    public ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken)
+    {
+        if (File is null || !File.Exists)
+        {
+            logger.LogError("Input file not found.");
+            return ValueTask.FromResult(1);
+        }
+
+        // Perform encoding / decoding work ...
+
+        return ValueTask.FromResult(0); // 0 = success
+    }
+}
+```
+
+## Defining Command-Line Options
+
+Options are declared as properties on your tool class, decorated with `[CommandLineOption]`. The framework parses them from the command line before `InvokeAsync` is called.
+
+| Property on attribute | Required | Description |
+|-----------------------|----------|-------------|
+| `Name` | ✅ | Long-form option name (e.g., `--file`) |
+| `Alias` | ❌ | Short-form alias (e.g., `-f`) |
+| `IsRequired` | ❌ | If `true`, the CLI reports an error when the option is absent |
+| `DescriptionResourceName` | ❌ | Resource key for the `--help` description |
+
+<Tip>
+  Use `ValueTask.FromResult(exitCode)` to return synchronously without allocating a `Task` when your tool completes without any `await` expressions.
+</Tip>
+
+## See Also
+
+- [Creating a CLI Tool](/extensions/create-cli-tool)
+- [CommandName attribute](/api/attributes/commandname)
+- [IGuiTool](/api/iguiTool)

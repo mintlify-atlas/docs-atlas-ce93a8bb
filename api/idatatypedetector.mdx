@@ -1,0 +1,138 @@
+---
+title: "IDataTypeDetector Interface — DevToys Smart Detection SDK"
+sidebarTitle: "IDataTypeDetector"
+description: "IDataTypeDetector lets DevToys detect clipboard data types. Implement TryDetectDataAsync to parse raw data and return a DataDetectionResult for Smart Detection routing."
+---
+
+`IDataTypeDetector` is the interface at the heart of DevToys Smart Detection. When the user copies something to the clipboard, DevToys runs every registered detector in dependency order and routes the detected type to any `IGuiTool` that declared `[AcceptedDataTypeName]` for that type. Implement this interface to teach DevToys how to recognize a new data format — whether that's a JWT token, a color hex string, a URL, or anything else — and optionally parse the raw input into a typed value that gets forwarded to your tool.
+
+**Namespace:** `DevToys.Api`
+
+## Interface Declaration
+
+```csharp
+public interface IDataTypeDetector
+{
+    ValueTask<DataDetectionResult> TryDetectDataAsync(
+        object rawData,
+        DataDetectionResult? resultFromBaseDetector,
+        CancellationToken cancellationToken);
+}
+```
+
+## Members
+
+<ParamField path="TryDetectDataAsync(object rawData, DataDetectionResult? resultFromBaseDetector, CancellationToken cancellationToken)" type="ValueTask<DataDetectionResult>">
+  Tries to detect whether `rawData` matches the format this detector understands. Return `DataDetectionResult.Unsuccessful` if the data does not match, or a successful `DataDetectionResult` carrying an optional parsed value if it does.
+
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | `rawData` | `object` | The data to analyze, typically a `string` coming from the OS clipboard. |
+  | `resultFromBaseDetector` | `DataDetectionResult?` | The result returned by the parent detector declared in `[DataTypeName(baseName: "...")]`. `null` when no base type was declared. Use `resultFromBaseDetector.Data` to access the already-parsed value from the parent stage. |
+  | `cancellationToken` | `CancellationToken` | Canceled within **2 seconds**. Detection must be fast — do not perform network I/O or heavy computation inside this method. |
+</ParamField>
+
+<Warning>
+  The `cancellationToken` passed to `TryDetectDataAsync` expires within 2 seconds. Any detector that takes longer is canceled, and Smart Detection moves on without it. Keep detection logic lightweight — validate structure, avoid network calls, and do the minimum parsing necessary to confirm a match.
+</Warning>
+
+## DataDetectionResult
+
+`DataDetectionResult` is a `record` that carries the outcome of your detection attempt.
+
+```csharp
+public record DataDetectionResult(bool Success, object? Data)
+{
+    public bool Success { get; init; }
+    public object? Data { get; init; }
+    public Type? DataType => Data?.GetType();
+
+    public static readonly DataDetectionResult Unsuccessful = new(false, null);
+}
+```
+
+### Factory Usage
+
+| Expression | When to use |
+|------------|-------------|
+| `DataDetectionResult.Unsuccessful` | The data does not match your format — return this static field. |
+| `new DataDetectionResult(true, parsedValue)` | Detection succeeded; pass the strongly-typed parsed object as `Data`. This value is later forwarded to `IGuiTool.OnDataReceived` as `parsedData`. |
+
+<Tip>
+  When you parse the raw data during detection (e.g., deserializing JSON, decoding Base64), store the parsed result in `Data` rather than re-parsing inside the tool. The same `DataDetectionResult.Data` object is passed directly to `OnDataReceived`, so you only pay the parsing cost once.
+</Tip>
+
+## Detector Inheritance with `baseName`
+
+The `[DataTypeName]` attribute accepts an optional `baseName` parameter that creates a parent–child relationship between detectors. The child detector runs **after** the parent and receives the parent's `DataDetectionResult` as `resultFromBaseDetector`. This lets you layer refinements on top of a more general detector without duplicating logic.
+
+```
+text (built-in)
+ └── json (built-in)
+      └── jwt-header (your detector)
+```
+
+In this chain, your JWT-header detector receives an already-parsed JSON object in `resultFromBaseDetector.Data`, so you only need to check whether the JSON has the fields of a JWT header — no raw text parsing required.
+
+## Full Example
+
+```csharp
+[Export(typeof(IDataTypeDetector))]
+[DataTypeName("jwt-header", baseName: "json")] // inherits from the built-in "json" detector
+[TargetPlatform(Platform.Windows)]  // Optional
+[TargetPlatform(Platform.WASM)]     // Optional
+internal sealed class JwtDetector : IDataTypeDetector
+{
+    public ValueTask<DataDetectionResult> TryDetectDataAsync(
+        object rawData,
+        DataDetectionResult? resultFromBaseDetector,
+        CancellationToken cancellationToken)
+    {
+        // The "json" base detector already validated and parsed the JSON.
+        // resultFromBaseDetector.Data contains the parsed JSON object.
+        if (resultFromBaseDetector is not { Success: true, Data: JsonElement root })
+        {
+            return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+        }
+
+        // A JWT header must have "alg" and "typ" fields.
+        if (!root.TryGetProperty("alg", out _) || !root.TryGetProperty("typ", out _))
+        {
+            return ValueTask.FromResult(DataDetectionResult.Unsuccessful);
+        }
+
+        // Return the already-parsed JSON element as the detected data.
+        return ValueTask.FromResult(new DataDetectionResult(true, root));
+    }
+}
+```
+
+## Wiring to a GUI Tool
+
+Once your detector is registered, annotate your `IGuiTool` implementation so DevToys routes detected data to it:
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("JWT Decoder")]
+[AcceptedDataTypeName("jwt-header")]   // matches the DataTypeName above
+// ... other attributes ...
+internal sealed class JwtGuiTool : IGuiTool
+{
+    public UIToolView View => ...;
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        // parsedData is the JsonElement from the detector's DataDetectionResult.Data
+        if (parsedData is JsonElement header)
+        {
+            // populate UI with header fields
+        }
+    }
+}
+```
+
+## See Also
+
+- [Smart Detection guide](/extensions/smart-detection)
+- [DataTypeName attribute](/api/attributes/datatypename)
+- [IGuiTool](/api/iguiTool)

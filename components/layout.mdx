@@ -1,0 +1,246 @@
+---
+title: "Layout Components: Stack, Grid, SplitGrid, Wrap, Card"
+sidebarTitle: "Layout"
+description: "Arrange DevToys tool UI elements using Stack (horizontal/vertical), Grid (rows/columns), SplitGrid (resizable panes), Wrap, and Card container components."
+---
+
+Layout components are the structural backbone of every DevToys tool UI. They do not display any content of their own — they arrange child `IUIElement` objects in rows, columns, wrapping flows, or resizable panes. All layout components are created through `GUI.*` factory methods and composed with fluent extension methods.
+
+---
+
+## Stack
+
+`IUIStack` stacks child elements into a single horizontal or vertical line. It is the most common layout primitive and the right starting point for most tools.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Orientation` | `UIOrientation` | `Horizontal` | Direction in which children are stacked. |
+| `Spacing` | `UISpacing` | `Small` | Gap between adjacent children. |
+| `UseMaxHeight` | `bool` | `false` | Stretch the stack to the full available height. |
+| `Children` | `IUIElement[]?` | `null` | The child elements to render. |
+
+### UISpacing values
+
+| Value | Fluent method | Intended use |
+|---|---|---|
+| `None` | `.NoSpacing()` | Elements that must sit flush against each other. |
+| `Small` | `.SmallSpacing()` | Items within the same logical group (default). |
+| `Medium` | `.MediumSpacing()` | Separation between distinct groups. |
+| `Large` | `.LargeSpacing()` | Separation between major sections. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIStack toolbar =
+    Stack()
+        .Horizontal()
+        .SmallSpacing()
+        .WithChildren(
+            Button().Text("Encode").AccentAppearance().OnClick(OnEncodeClicked),
+            Button().Text("Decode").OnClick(OnDecodeClicked),
+            Button().Text("Clear").HyperlinkAppearance().OnClick(OnClearClicked));
+
+IUIStack root =
+    Stack()
+        .Vertical()
+        .MediumSpacing()
+        .UseMaxHeight()
+        .WithChildren(
+            Label().Text("Base64 Encoder / Decoder").Style(UILabelStyle.Subtitle),
+            toolbar,
+            MultiLineTextInput("input").Title("Input"),
+            MultiLineTextInput("output").Title("Output").ReadOnly());
+```
+
+---
+
+## Grid
+
+`IUIGrid` provides a multi-row, multi-column layout, analogous to CSS Grid or WPF's `Grid` panel. Each child is placed in an `IUIGridCell` that declares its row and column position.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Rows` | `UIGridLength[]?` | Single `1*` row | Height definition for each row. |
+| `Columns` | `UIGridLength[]?` | Single `1*` column | Width definition for each column. |
+| `Cells` | `IUIGridCell[]?` | `null` | Cells that populate the grid. |
+| `RowSpacing` | `UISpacing` | `Small` | Vertical gap between rows. |
+| `ColumnSpacing` | `UISpacing` | `Small` | Horizontal gap between columns. |
+
+### UIGridLength and UIGridUnitType
+
+A `UIGridLength` describes the size of a row or column using one of three unit types:
+
+| Unit | Factory / constant | Example | Meaning |
+|---|---|---|---|
+| `Auto` | `GUI.Auto` | `Auto` | Size to fit content. |
+| `Fraction` | `GUI.Fraction(n)` | `Fraction(2)` | Weighted share of remaining space — like `2*` in WPF. |
+| `Pixel` | `new UIGridLength(300)` | `300px` | Fixed number of device-independent pixels. |
+
+<Note>
+`UIGridLength.Auto` is **not supported** in `SplitGrid`. Use `Fraction` or `Pixel` there instead.
+</Note>
+
+### Named enum pattern
+
+The `Rows<TEnum>` and `Columns<TEnum>` overloads let you reference rows and columns by name via an enum, which also works with the typed `Cell<TRow, TColumn>` factory:
+
+```csharp
+using static DevToys.Api.GUI;
+
+// Define row and column names
+private enum Row  { Input, Output }
+private enum Col  { Left, Right }
+
+IUIGrid layout =
+    Grid()
+        .Rows(
+            (Row.Input,  Auto),
+            (Row.Output, Fraction(1)))
+        .Columns(
+            (Col.Left,  Fraction(1)),
+            (Col.Right, Fraction(1)))
+        .ColumnSmallSpacing()
+        .RowSmallSpacing()
+        .Cells(
+            Cell(Row.Input,  Col.Left,
+                Label().Text("Input")),
+            Cell(Row.Input,  Col.Right,
+                Label().Text("Output")),
+            Cell(Row.Output, Col.Left,
+                MultiLineTextInput("input").Language("json")),
+            Cell(Row.Output, Col.Right,
+                MultiLineTextInput("output").Language("json").ReadOnly()));
+```
+
+### Spanning multiple rows or columns
+
+Use the four-argument `Cell` overload to span across rows or columns:
+
+```csharp
+// A header that spans both columns
+Cell(0, 0, rowSpan: 1, columnSpan: 2,
+    Label().Text("Comparison").Style(UILabelStyle.Subtitle))
+```
+
+---
+
+## SplitGrid
+
+`IUISplitGrid` divides an area into exactly two panes separated by a user-draggable divider. It is the standard layout for tools that show input on one side and output on the other.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Orientation` | `UIOrientation` | `Vertical` | `Vertical` = left/right panes; `Horizontal` = top/bottom panes. |
+| `LeftOrTopCellLength` | `UIGridLength` | `Fraction(1)` | Size of the first pane. |
+| `RightOrBottomCellLength` | `UIGridLength` | `Fraction(1)` | Size of the second pane. |
+| `MinimumCellLength` | `int` | `50` | Minimum pixel size for either pane. |
+| `LeftOrTopCellContent` | `IUIElement?` | `null` | Element rendered in the left or top pane. |
+| `RightOrBottomCellContent` | `IUIElement?` | `null` | Element rendered in the right or bottom pane. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUISplitGrid splitView =
+    SplitGrid()
+        .Vertical()
+        .LeftPaneLength(Fraction(1))
+        .RightPaneLength(Fraction(1))
+        .MinimumLength(200)
+        .WithLeftPaneChild(
+            MultiLineTextInput("json-input")
+                .Title("JSON Input")
+                .Language("json")
+                .Extendable()
+                .OnTextChanged(OnInputChanged))
+        .WithRightPaneChild(
+            MultiLineTextInput("yaml-output")
+                .Title("YAML Output")
+                .Language("yaml")
+                .ReadOnly()
+                .Extendable());
+```
+
+<Tip>
+Use `.Horizontal()` on a `SplitGrid` when you need a top/bottom split — for example to show a code editor above a diagnostic panel.
+</Tip>
+
+---
+
+## Wrap
+
+`IUIWrap` lays children out horizontally and wraps them onto the next line when horizontal space runs out — much like CSS `flex-wrap`. Use it for badge/tag-style elements or any collection of variable-width items.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Spacing` | `UISpacing` | `Small` | Gap between items in both axes. |
+| `Children` | `IUIElement[]?` | `null` | The child elements. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+// Render a row of format selector buttons that wrap if the window is narrow
+IUIWrap formatSelector =
+    Wrap()
+        .SmallSpacing()
+        .WithChildren(
+            Button().Text("JSON").OnClick(() => SelectFormat("json")),
+            Button().Text("XML").OnClick(() => SelectFormat("xml")),
+            Button().Text("YAML").OnClick(() => SelectFormat("yaml")),
+            Button().Text("TOML").OnClick(() => SelectFormat("toml")),
+            Button().Text("CSV").OnClick(() => SelectFormat("csv")));
+```
+
+---
+
+## Card
+
+`IUICard` wraps a single `IUIElement` in a card-style visual container, adding a border, background, and padding to group content visually.
+
+### Key properties
+
+| Property | Type | Description |
+|---|---|---|
+| `UIElement` | `IUIElement` | The content element displayed inside the card. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+// Wrap a settings stack inside a card to visually separate it from the rest of the UI
+IUICard settingsCard =
+    Card(
+        Stack()
+            .Vertical()
+            .SmallSpacing()
+            .WithChildren(
+                Label().Text("Options").Style(UILabelStyle.BodyStrong),
+                Setting()
+                    .Title("Indent output")
+                    .Description("Add newlines and indentation to the generated JSON.")
+                    .InteractiveElement(
+                        Switch().On().OnToggle(OnIndentToggled)),
+                Setting()
+                    .Title("Sort keys")
+                    .Description("Sort JSON object keys alphabetically.")
+                    .InteractiveElement(
+                        Switch().Off().OnToggle(OnSortKeysToggled))));
+```
+
+<Note>
+`Card` takes exactly one child element. Wrap multiple items in a `Stack` or `Grid` before passing them to `Card`.
+</Note>

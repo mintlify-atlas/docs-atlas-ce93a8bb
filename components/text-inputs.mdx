@@ -1,0 +1,213 @@
+---
+title: "Text Input Components: MultiLine, SingleLine, Diff, Password, Number"
+sidebarTitle: "Text Inputs"
+description: "DevToys provides Monaco-powered multi-line and diff text inputs with syntax highlighting, plus single-line, password, and number input components."
+---
+
+DevToys provides a complete set of text input components for both tool input and output. The most capable are the Monaco Editor-backed `MultiLineTextInput` and `DiffTextInput`, which deliver syntax highlighting, hover tooltips, custom text highlighting, scrollbar synchronisation, and optional full-screen expansion. For shorter values there are `SingleLineTextInput`, `PasswordInput`, and `NumberInput`.
+
+All text inputs inherit from `IUISingleLineTextInput`, which itself extends `IUITitledElementWithChildren`. This means every text input can have a `Title`, can be made read-only, and can host extra content in its command bar.
+
+---
+
+## MultiLineTextInput
+
+`IUIMultiLineTextInput` is powered by **Monaco Editor** — the same editor used in VS Code. It is the right choice for any multi-line text, especially when syntax highlighting is useful to the user.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string` | `""` | The current text content. |
+| `SyntaxColorizationLanguageName` | `string` | `""` | Language ID for syntax highlighting (e.g. `"json"`, `"xml"`, `"sql"`). |
+| `IsReadOnly` | `bool` | `false` | Prevent editing. Adds a Copy button to the command bar. |
+| `IsExtendableToFullScreen` | `bool` | `false` | Allow the editor to expand to fill the tool's boundaries. |
+| `WrapMode` | `UITextWrapMode` | `Auto` | Controls line wrapping. |
+| `LineNumberMode` | `UITextLineNumber` | `Auto` | Controls line number visibility. |
+| `HighlightedSpans` | `IReadOnlyList<UIHighlightedTextSpan>` | empty | Spans to highlight with a custom colour. |
+| `HoverTooltips` | `IReadOnlyList<UIHoverTooltip>` | empty | Tooltips shown when the user hovers a word. |
+| `TextInputToSynchronizeScrollBarWith` | `IUIMultiLineTextInput?` | `null` | Another editor whose scrollbars should stay in sync with this one. |
+| `Selection` | `TextSpan` | caret at 0 | The primary selection or caret position. |
+
+### UITextWrapMode
+
+| Value | Fluent method | Behaviour |
+|---|---|---|
+| `Auto` | `.AutoWrap()` | Respects the user's global DevToys setting. |
+| `Wrap` | `.AlwaysWrap()` | Always wrap long lines. |
+| `NoWrap` | `.NeverWrap()` | Never wrap; use a horizontal scrollbar. |
+
+### UITextLineNumber
+
+| Value | Fluent method | Behaviour |
+|---|---|---|
+| `Auto` | `.AutoLineNumber()` | Respects the user's global DevToys setting. |
+| `Show` | `.AlwaysShowLineNumber()` | Always display line numbers. |
+| `Hide` | `.NeverShowLineNumber()` | Never display line numbers. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private IUIMultiLineTextInput _inputEditor
+    = MultiLineTextInput("json-input")
+        .Title("JSON Input")
+        .Language("json")
+        .Extendable()
+        .AlwaysShowLineNumber()
+        .OnTextChanged(OnInputTextChanged);
+
+private IUIMultiLineTextInput _outputEditor
+    = MultiLineTextInput("json-output")
+        .Title("Formatted Output")
+        .Language("json")
+        .ReadOnly()
+        .Extendable()
+        .SynchronizeScrollBarWith(_inputEditor);  // ← scrollbars stay in sync
+
+public UIToolView View
+    => new UIToolView(
+        isScrollable: false,
+        SplitGrid()
+            .Vertical()
+            .WithLeftPaneChild(_inputEditor)
+            .WithRightPaneChild(_outputEditor));
+```
+
+---
+
+## SingleLineTextInput
+
+`IUISingleLineTextInput` is a compact, single-line text field for short values such as URLs, file paths, or API keys.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string` | `""` | The current text. |
+| `IsReadOnly` | `bool` | `false` | Prevent editing. |
+| `CanCopyWhenEditable` | `bool` | `false` | Show the Copy button even when the field is editable. |
+| `HideCommandBar` | `bool` | `false` | Hide the command bar (Copy button and `CommandBarExtraContent`). |
+| `CommandBarExtraContent` | `IUIElement?` | `null` | Extra element added to the command bar. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUISingleLineTextInput urlInput =
+    SingleLineTextInput("target-url")
+        .Title("Target URL")
+        .Text("https://example.com")
+        .OnTextChanged(OnUrlChanged);
+
+IUISingleLineTextInput resultField =
+    SingleLineTextInput("result")
+        .Title("Encoded URL")
+        .ReadOnly()
+        .CanCopyWhenEditable();
+```
+
+---
+
+## DiffTextInput
+
+`IUIDiffTextInput` renders a Monaco-backed side-by-side or inline diff between two strings. Use it whenever the tool's purpose is to compare text — for example a formatter that shows what changed, or a JWT decoder that shows original vs decoded.
+
+### Key properties
+
+`IUIDiffTextInput` extends `IUISingleLineTextInput`. The base `Text` property is an alias for `OriginalText`.
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `OriginalText` | `string` | `""` | The left-hand ("before") text. Same as `Text`. |
+| `ModifiedText` | `string` | `""` | The right-hand ("after") text. |
+| `InlineMode` | `bool` | `false` | `true` = unified inline diff; `false` = split side-by-side view. |
+| `IsExtendableToFullScreen` | `bool` | `false` | Allow full-screen expansion. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private IUIDiffTextInput _diffView
+    = DiffTextInput("diff")
+        .Title("Diff")
+        .OriginalText(string.Empty)
+        .ModifiedText(string.Empty)
+        .SplitView()
+        .Extendable();
+
+// After the user provides both texts:
+private void ShowDiff(string before, string after)
+{
+    _diffView
+        .OriginalText(before)
+        .ModifiedText(after);
+}
+```
+
+<Tip>
+Call `.InlineView()` to toggle to a unified diff view, or `.SplitView()` to return to the side-by-side layout. Both methods are available at any time, not just during initialisation.
+</Tip>
+
+---
+
+## PasswordInput
+
+`IUIPasswordInput` is a single-line text input that masks its characters — suitable for secret keys, tokens, or passwords. It inherits the full `IUISingleLineTextInput` API.
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIPasswordInput apiKeyInput =
+    PasswordInput("api-key")
+        .Title("API Key")
+        .OnTextChanged(OnApiKeyChanged);
+```
+
+---
+
+## NumberInput
+
+`IUINumberInput` constrains the input to numeric values and provides optional minimum, maximum, and step constraints. It extends `IUISingleLineTextInput`; the underlying `Text` property stores the string representation of the number, and the `Value` property returns it as a `double` (clamped to `Min`/`Max`).
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Value` | `double` | `0` (clamped) | The current numeric value, clamped between `Min` and `Max`. |
+| `Min` | `double` | `int.MinValue` | Minimum allowed value. |
+| `Max` | `double` | `int.MaxValue` | Maximum allowed value. |
+| `Step` | `double` | `1` | The increment/decrement step for spinner controls. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUINumberInput iterationsInput =
+    NumberInput("iterations")
+        .Title("Hash Iterations")
+        .Minimum(1)
+        .Maximum(1_000_000)
+        .Step(1000)
+        .Value(10_000)
+        .OnValueChanged(OnIterationsChanged);
+
+IUINumberInput precisionInput =
+    NumberInput("decimal-places")
+        .Title("Decimal Places")
+        .Minimum(0)
+        .Maximum(15)
+        .Step(1)
+        .Value(2)
+        .OnValueChanged(OnPrecisionChanged);
+```
+
+<Note>
+`NumberInput` derives from `SingleLineTextInput`, so `.ReadOnly()`, `.Title()`, and `.CommandBarExtraContent()` all apply to it as well.
+</Note>

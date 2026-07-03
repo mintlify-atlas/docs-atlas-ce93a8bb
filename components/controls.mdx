@@ -1,0 +1,297 @@
+---
+title: "Interactive Controls: Button, Switch, DropDown, FileSelector"
+sidebarTitle: "Controls"
+description: "DevToys provides Button, Switch, SelectDropDownList, DropDownButton, and FileSelector controls for building interactive tool UIs with the GUI.* factory API."
+---
+
+Interactive controls let the user drive the behaviour of a tool. DevToys provides buttons (plain, accent, hyperlink, and drop-down), a boolean toggle switch, a single-selection dropdown list, and a file-picker drop zone. For structured option UIs there is also the `Setting` and `SettingGroup` pattern, which renders a labeled setting row with any control as its interactive value.
+
+---
+
+## Button
+
+`IUIButton` is a clickable element that triggers a `Func<ValueTask>` when pressed. Buttons support three visual styles: neutral (default), accent, and hyperlink. A button can also carry an icon glyph from a named font.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string?` | `null` | Label shown inside the button. |
+| `IsAccent` | `bool` | `false` | Renders using the app's accent colour. |
+| `IsHyperlink` | `bool` | `false` | Renders as an inline hyperlink. Setting this also clears `IsAccent`. |
+| `IconFontName` | `string?` | `null` | Font name for an optional icon glyph. |
+| `IconGlyph` | `char` | `\0` | Glyph character within `IconFontName`. |
+| `OnClickAction` | `Func<ValueTask>?` | `null` | Action invoked on click. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIStack buttonRow =
+    Stack()
+        .Horizontal()
+        .SmallSpacing()
+        .WithChildren(
+            Button()
+                .Text("Convert")
+                .AccentAppearance()
+                .OnClick(OnConvertClicked),
+            Button()
+                .Text("Swap")
+                .NeutralAppearance()
+                .OnClick(OnSwapClicked),
+            Button()
+                .Text("Reset")
+                .HyperlinkAppearance()
+                .OnClick(OnResetClicked));
+```
+
+---
+
+## DropDownButton
+
+`IUIDropDownButton` is a button that opens a flyout menu of `IUIDropDownMenuItem` items. Use it when a single action concept has multiple variants (for example "Copy As JSON", "Copy As XML").
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string?` | `null` | Label on the button face. |
+| `IconFontName` / `IconGlyph` | `string?` / `char` | `null` / `\0` | Optional icon glyph. |
+| `MenuItems` | `IUIDropDownMenuItem[]?` | `null` | The items shown in the flyout. |
+
+### IUIDropDownMenuItem properties
+
+| Property | Description |
+|---|---|
+| `Text` | Label of the menu item. |
+| `IsEnabled` | Whether the item is interactive. Default `true`. |
+| `IconFontName` / `IconGlyph` | Optional icon glyph. |
+| `OnClickAction` | `Func<ValueTask>` invoked when the item is clicked. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIDropDownButton copyAsButton =
+    DropDownButton()
+        .Text("Copy As")
+        .WithMenuItems(
+            DropDownMenuItem("JSON")
+                .OnClick(CopyAsJson),
+            DropDownMenuItem("XML")
+                .OnClick(CopyAsXml),
+            DropDownMenuItem("YAML")
+                .OnClick(CopyAsYaml),
+            DropDownMenuItem("CSV")
+                .OnClick(CopyAsCsv));
+```
+
+---
+
+## Switch
+
+`IUISwitch` is a boolean toggle that emits an `IsOn` state change. It renders with configurable on/off labels (default: "On" / "Off") and can be linked to a `SettingDefinition<bool>` via the `Setting.Handle` helper for automatic persistence.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `IsOn` | `bool` | `false` | Current toggle state. |
+| `OnText` | `string?` | `"On"` | Label shown when the switch is on. |
+| `OffText` | `string?` | `"Off"` | Label shown when the switch is off. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private IUISwitch _indentSwitch =
+    Switch("indent-toggle")
+        .On()
+        .OnText("Indented")
+        .OffText("Minified")
+        .OnToggle(OnIndentToggled);
+
+private ValueTask OnIndentToggled(bool isOn)
+{
+    _outputEditor.Text(isOn ? _indentedOutput : _minifiedOutput);
+    return ValueTask.CompletedTask;
+}
+```
+
+---
+
+## SelectDropDownList
+
+`IUISelectDropDownList` presents a dropdown list from which the user selects exactly one `IUIDropDownListItem`. Each item has a display `Text` and an associated `Value` (typed as `object?`).
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Items` | `IUIDropDownListItem[]?` | `null` | The list of selectable items. |
+| `SelectedItem` | `IUIDropDownListItem?` | `null` | Currently selected item. |
+| `OnItemSelectedAction` | `Func<IUIDropDownListItem?, ValueTask>?` | `null` | Callback invoked when selection changes. |
+
+### Creating list items
+
+Use `GUI.Item(text, value)` to build each `IUIDropDownListItem`:
+
+```csharp
+GUI.Item("UTF-8",  Encoding.UTF8)
+GUI.Item("UTF-16", Encoding.Unicode)
+GUI.Item("ASCII",  Encoding.ASCII)
+```
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUISelectDropDownList _encodingSelector =
+    SelectDropDownList("encoding")
+        .Title("Output Encoding")
+        .WithItems(
+            Item("UTF-8",    Encoding.UTF8),
+            Item("UTF-16",   Encoding.Unicode),
+            Item("UTF-32",   Encoding.UTF32),
+            Item("ASCII",    Encoding.ASCII))
+        .Select(0)           // pre-select the first item (UTF-8)
+        .OnItemSelected(OnEncodingSelected);
+
+private ValueTask OnEncodingSelected(IUIDropDownListItem? item)
+{
+    if (item?.Value is Encoding encoding)
+    {
+        ApplyEncoding(encoding);
+    }
+    return ValueTask.CompletedTask;
+}
+```
+
+<Tip>
+Use `.Select(index)` to pre-select an item by its zero-based position in the list, or `.Select(item)` to select a specific `IUIDropDownListItem` instance.
+</Tip>
+
+---
+
+## FileSelector
+
+`IUIFileSelector` combines a drop zone and a native file-picker button. The user can drag files, paste images from the clipboard, or browse for files. Selected files are exposed as `SandboxedFileReader` instances — a sandboxed wrapper that provides a `Stream` and a `FileName` without exposing the full filesystem path.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `CanSelectManyFiles` | `bool` | `false` | Allow multiple files to be selected at once. |
+| `AllowedFileExtensions` | `string[]` | empty (any) | Restrict selectable files to these extensions (e.g. `".json"`, `".txt"`). |
+| `SelectedFiles` | `SandboxedFileReader[]` | empty | The currently selected files. |
+| `OnFilesSelectedAction` | `Func<SandboxedFileReader[], ValueTask>?` | `null` | Callback invoked when files are chosen. |
+
+<Note>
+`SandboxedFileReader` holds an open `Stream`. You are responsible for disposing each reader after use — DevToys does **not** dispose them automatically.
+</Note>
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIFileSelector fileInput =
+    FileSelector("file-drop")
+        .CanSelectManyFiles()
+        .LimitFileTypesTo(".json", ".jsonl", ".ndjson")
+        .OnFilesSelected(OnFilesSelected);
+
+private async ValueTask OnFilesSelected(SandboxedFileReader[] files)
+{
+    foreach (SandboxedFileReader file in files)
+    {
+        await using Stream stream = await file.GetNewAccessToFileContentAsync(CancellationToken.None);
+        using var reader = new StreamReader(stream);
+        string content = await reader.ReadToEndAsync();
+        ProcessJsonContent(file.FileName, content);
+        // SandboxedFileReader is disposed by the `await using` above
+    }
+}
+```
+
+To limit the selector to all built-in supported image formats, use the convenience method:
+
+```csharp
+FileSelector("image-drop")
+    .LimitFileTypesToImages()
+    .CanSelectOneFile()
+    .OnFilesSelected(OnImageSelected);
+```
+
+---
+
+## Setting
+
+`IUISetting` renders a structured setting row with a `Title`, optional `Description`, optional `StateDescription`, an optional `Icon`, and an `InteractiveElement` (any `IUIElement`). It is the standard way to present tool or app options.
+
+### Key properties
+
+| Property | Type | Description |
+|---|---|---|
+| `Title` | `string?` | The setting name (via `IUITitledElement`). |
+| `Description` | `string?` | Explanatory text beneath the title. |
+| `StateDescription` | `string?` | Dynamic text that reflects the current state (e.g. "Enabled"). |
+| `Icon` | `IUIIcon?` | Decorative icon beside the title. |
+| `InteractiveElement` | `IUIElement?` | The control that changes the setting value. |
+
+### Handle helpers
+
+The `.Handle(settingsProvider, settingDefinition, ...)` overloads automatically wire up a `Switch` or `SelectDropDownList` to a persisted `SettingDefinition` — the binding is two-way:
+
+```csharp
+// Boolean setting bound to a switch
+Setting("indent-setting")
+    .Title("Indent output")
+    .Description("Produce human-readable, indented JSON output.")
+    .Icon("FluentSystemIcons", '\uF6E6')
+    .Handle(
+        settingsProvider,
+        IndentOutputSetting,
+        stateDescriptionWhenOn: "On",
+        stateDescriptionWhenOff: "Off",
+        onToggled: OnIndentToggled);
+```
+
+### SettingGroup
+
+`IUISettingGroup` extends `IUISetting` with a `Children` array, allowing you to nest multiple `IUISetting` rows under a single group header:
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUISettingGroup outputGroup =
+    SettingGroup("output-settings")
+        .Icon("FluentSystemIcons", '\uF4C9')
+        .Title("Output")
+        .Description("Configure how the converted data is formatted.")
+        .WithSettings(
+            Setting()
+                .Title("Indent output")
+                .Description("Add indentation and newlines to the generated output.")
+                .InteractiveElement(
+                    Switch().On().OnToggle(OnIndentToggled)),
+            Setting()
+                .Title("Sort keys")
+                .Description("Sort object keys alphabetically.")
+                .InteractiveElement(
+                    Switch().Off().OnToggle(OnSortKeysToggled)),
+            Setting()
+                .Title("Output encoding")
+                .InteractiveElement(
+                    SelectDropDownList()
+                        .WithItems(
+                            Item("UTF-8",  "utf-8"),
+                            Item("UTF-16", "utf-16"))
+                        .Select(0)
+                        .OnItemSelected(OnEncodingSelected)));
+```

@@ -1,0 +1,396 @@
+---
+title: "Display Components: Label, InfoBar, ImageViewer, DataGrid, List, Progress"
+sidebarTitle: "Display"
+description: "DevToys display components include Label, InfoBar, ImageViewer, DataGrid, List, ProgressBar, ProgressRing, and Icon for presenting data and feedback in tool UIs."
+---
+
+Display components present information to the user without requiring direct input. They range from simple text labels to full-featured data grids and image viewers. Because all DevToys component properties are reactive, display components update instantly when your code changes their values — making them well suited for showing real-time operation results, progress feedback, and status messages.
+
+---
+
+## Label
+
+`IUILabel` renders a text string using one of the app's standard typographic scales. Use labels for headings, descriptions, and result text that does not need to be editable.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Text` | `string?` | `null` | The string to display. |
+| `Style` | `UILabelStyle` | `Body` | Typographic scale variant. |
+| `AutoWrap` | `bool` | `true` | Allow text to wrap when it reaches the available width. |
+
+### UILabelStyle values
+
+| Value | Fluent method | Typical use |
+|---|---|---|
+| `Caption` | `.Style(UILabelStyle.Caption)` | Annotations, footnotes. |
+| `Body` | `.Style(UILabelStyle.Body)` | Default body text. |
+| `BodyStrong` | `.Style(UILabelStyle.BodyStrong)` | Emphasised body text. |
+| `BodyLarge` | `.Style(UILabelStyle.BodyLarge)` | Slightly larger body text. |
+| `Subtitle` | `.Style(UILabelStyle.Subtitle)` | Section headers inside a tool panel. |
+| `Title` | `.Style(UILabelStyle.Title)` | Page-level titles. |
+| `TitleLarge` | `.Style(UILabelStyle.TitleLarge)` | Extra-large titles. |
+| `Display` | `.Style(UILabelStyle.Display)` | Hero display text. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+IUIStack labelStack =
+    Stack()
+        .Vertical()
+        .SmallSpacing()
+        .WithChildren(
+            Label()
+                .Text("JSON Formatter")
+                .Style(UILabelStyle.Title),
+            Label()
+                .Text("Format and validate JSON documents.")
+                .Style(UILabelStyle.Body),
+            Label()
+                .Text("Result size: 0 bytes")
+                .Style(UILabelStyle.Caption));
+```
+
+---
+
+## InfoBar
+
+`IUIInfoBar` is a dismissible notification banner that communicates a status message to the user. It supports four severity levels and an optional action button. The bar is hidden by default (`IsOpened = false`) and must be opened explicitly.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `IsOpened` | `bool` | `false` | Whether the bar is currently visible. |
+| `IsClosable` | `bool` | `true` | Allow the user to dismiss the bar themselves. |
+| `IsIconVisible` | `bool` | `true` | Show or hide the severity icon. |
+| `Severity` | `UIInfoBarSeverity` | `Informational` | Visual severity level. |
+| `Title` | `string?` | `null` | Bold heading text. |
+| `Description` | `string?` | `null` | Supporting message text. |
+| `ActionButtonText` | `string?` | `null` | Text for an optional button (hides if `null`). |
+| `IsActionButtonAccent` | `bool` | `false` | Render the action button in accent style. |
+
+### UIInfoBarSeverity values
+
+| Value | Fluent method | Meaning |
+|---|---|---|
+| `Informational` | `.Informational()` | Neutral information. |
+| `Success` | `.Success()` | Operation completed successfully. |
+| `Warning` | `.Warning()` | Potential issue; the operation may still proceed. |
+| `Error` | `.Error()` | Operation failed or invalid state. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIInfoBar _statusBar =
+    InfoBar("status")
+        .Informational()
+        .NonClosable()
+        .Title("Ready")
+        .Description("Paste or type JSON to begin formatting.");
+
+// Show a success message after an operation:
+private void ShowSuccess(int byteCount)
+{
+    _statusBar
+        .Success()
+        .Title("Done")
+        .Description($"Formatted {byteCount:N0} bytes successfully.")
+        .Open();
+}
+
+// Show an error:
+private void ShowError(string message)
+{
+    _statusBar
+        .Error()
+        .Title("Invalid JSON")
+        .Description(message)
+        .Open();
+}
+```
+
+<Tip>
+Pair an `InfoBar` with `.NonClosable()` and control its `.Open()` / `.Close()` calls programmatically to create a persistent status strip at the bottom of your tool UI.
+</Tip>
+
+---
+
+## ImageViewer
+
+`IUIImageViewer` displays a raster or vector image and provides built-in zoom, pan, and save-to-disk actions. Supported formats out of the box: **BMP, GIF, JPEG, PBM, PNG, TIFF, TGA, WEBP, SVG**.
+
+### Key properties
+
+| Property | Type | Description |
+|---|---|---|
+| `ImageSource` | `OneOf<FileInfo, Image, SandboxedFileReader>?` | The image to display. |
+| `CustomActionPerFileExtensionOnSaving` | `IReadOnlyDictionary<string, Func<FileStream, ValueTask>>` | Custom save handlers per file extension. |
+
+### Setting the image source
+
+Three fluent methods cover the three source types:
+
+| Overload | When to use |
+|---|---|
+| `.WithFile(FileInfo)` | Image already on disk. |
+| `.WithPickedFile(SandboxedFileReader, disposeAutomatically)` | File picked by a `FileSelector`. |
+| `.WithImage(Image, disposeAutomatically)` | `SixLabors.ImageSharp.Image` created in memory. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIImageViewer _imageViewer =
+    ImageViewer("preview")
+        .Title("Preview");
+
+// Called after the user picks a file:
+private ValueTask OnFileSelected(SandboxedFileReader[] files)
+{
+    SandboxedFileReader file = files[0];
+    _imageViewer.WithPickedFile(file, disposeAutomatically: true);
+    return ValueTask.CompletedTask;
+}
+```
+
+To register a custom save handler (for example to write an SVG from an in-memory model):
+
+```csharp
+_imageViewer.ManuallyHandleSaveAs("svg", async stream =>
+{
+    await using var writer = new StreamWriter(stream);
+    await writer.WriteAsync(GenerateSvg());
+});
+```
+
+---
+
+## DataGrid
+
+`IUIDataGrid` displays tabular data with named column headers. Rows are held in an `ObservableCollection<IUIDataGridRow>` so additions and removals update the grid live without rebuilding the whole component. Each row contains `IUIDataGridCell` instances, each of which wraps an `IUIElement`, enabling rich cell content such as icons, buttons, or labels.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Columns` | `string[]` | empty | Column header labels. |
+| `Rows` | `ObservableCollection<IUIDataGridRow>` | empty | Live-observable row collection. |
+| `CanSelectRow` | `bool` | `true` | Allow row selection. |
+| `SelectedRow` | `IUIDataGridRow?` | `null` | The currently selected row. |
+| `IsExtendableToFullScreen` | `bool` | `false` | Allow the grid to expand full-screen. |
+
+### Building rows and cells
+
+| Factory | Description |
+|---|---|
+| `GUI.Row(value, cells[])` | Create a row with a value and an array of `IUIDataGridCell`. |
+| `GUI.Row(value, strings[])` | Shorthand: create text-label cells from a string array. |
+| `GUI.Cell(uiElement)` | Create a cell wrapping any `IUIElement`. |
+
+<Note>
+`IUIDataGridCell` holds an optional `IUIElement`. Use the `IUIDataGridCell.cs` factory `Cell(string text)` shorthand for plain text cells.
+</Note>
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIDataGrid _resultsGrid =
+    DataGrid("hash-results")
+        .Title("Hash Results")
+        .WithColumns("Algorithm", "Hash Value", "Length")
+        .Extendable()
+        .OnRowSelected(OnResultRowSelected);
+
+// Populate the grid after hashing:
+private void ShowHashResults(IEnumerable<(string algo, string hash)> results)
+{
+    _resultsGrid.Rows.Clear();
+    foreach (var (algo, hash) in results)
+    {
+        _resultsGrid.Rows.Add(
+            Row(
+                value: hash,
+                algo,
+                hash,
+                hash.Length.ToString()));
+    }
+}
+```
+
+---
+
+## List
+
+`IUIList` is a vertically scrolling list of `IUIListItem` entries. Each item wraps an `IUIElement` for rich visual presentation and carries an optional `Value` used to identify the selection in callbacks.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Items` | `ObservableCollection<IUIListItem>` | empty | Live-observable item collection. |
+| `CanSelectItem` | `bool` | `true` | Allow item selection. |
+| `SelectedItem` | `IUIListItem?` | `null` | The currently selected item. |
+
+### Creating list items
+
+Use `GUI.Item(uiElement, value)` to create each `IUIListItem`:
+
+```csharp
+GUI.Item(
+    Stack()
+        .Horizontal()
+        .SmallSpacing()
+        .WithChildren(
+            Label().Text("application/json"),
+            Label().Text("42 bytes").Style(UILabelStyle.Caption)),
+    value: "application/json")
+```
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIList _fileList =
+    List("selected-files")
+        .OnItemSelected(OnFileItemSelected);
+
+private void PopulateFileList(IEnumerable<SandboxedFileReader> files)
+{
+    _fileList.Items.Clear();
+    foreach (SandboxedFileReader file in files)
+    {
+        _fileList.Items.Add(
+            Item(
+                Stack()
+                    .Horizontal()
+                    .SmallSpacing()
+                    .WithChildren(
+                        Label().Text(file.FileName),
+                        Label()
+                            .Text("Click to preview")
+                            .Style(UILabelStyle.Caption)),
+                value: file));
+    }
+}
+```
+
+---
+
+## ProgressBar
+
+`IUIProgressBar` renders a horizontal bar that visualises the progress of a long-running operation. It supports both determinate (0–100) and indeterminate (pulsing) modes.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Value` | `double` | `0` | Current progress value between `0` and `100`. |
+| `IsIndeterminate` | `bool` | `false` | Display a continuous animation instead of a specific value. |
+
+### Setting progress
+
+| Method | Use when |
+|---|---|
+| `.Progress(percentage)` | Calling from the **UI thread** (synchronous). |
+| `await .ProgressAsync(percentage)` | Calling from a **background thread** (throttled, non-blocking). |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIProgressBar _progressBar =
+    ProgressBar("operation-progress")
+        .StartIndeterminateProgress();  // show spinner while we prepare
+
+// Switch to determinate mode once we know the total:
+private async Task ProcessFilesAsync(IReadOnlyList<string> files, CancellationToken ct)
+{
+    _progressBar.StopIndeterminateProgress();
+
+    for (int i = 0; i < files.Count; i++)
+    {
+        await ProcessFileAsync(files[i], ct);
+        double percent = (i + 1) * 100.0 / files.Count;
+        await _progressBar.ProgressAsync(percent);
+    }
+
+    _progressBar.Progress(100);
+}
+```
+
+---
+
+## ProgressRing
+
+`IUIProgressRing` is the circular equivalent of `IUIProgressBar`. It extends `IUIProgressBar` directly, so all of the same methods and properties apply — `Progress`, `ProgressAsync`, `StartIndeterminateProgress`, `StopIndeterminateProgress`, and `IsIndeterminate`.
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+private readonly IUIProgressRing _spinner =
+    ProgressRing("spinner")
+        .StartIndeterminateProgress();
+
+// Show while awaiting a network call:
+_spinner.Show();
+try
+{
+    string result = await FetchRemoteDataAsync();
+    _outputEditor.Text(result);
+}
+finally
+{
+    _spinner.Hide();
+}
+```
+
+---
+
+## Icon
+
+`IUIIcon` renders a single glyph from a named icon font at a specified pixel size. Icons are most commonly used as children of other components (for example `IUISetting.Icon` or inside a `Stack`), but can be placed anywhere an `IUIElement` is accepted.
+
+### Key properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `FontName` | `string` | _(required)_ | The registered font name (e.g. `"FluentSystemIcons"`). |
+| `Glyph` | `char` | _(required)_ | The Unicode character that maps to the desired glyph. |
+| `Size` | `int` | `16` | Rendered size in device-independent pixels. |
+
+### Example
+
+```csharp
+using static DevToys.Api.GUI;
+
+// 24 px warning icon from the Fluent System Icons font
+IUIIcon warningIcon =
+    Icon("FluentSystemIcons", '\uF403')
+        .Size(24);
+
+// Inline icon in a horizontal stack
+IUIStack badge =
+    Stack()
+        .Horizontal()
+        .SmallSpacing()
+        .WithChildren(
+            Icon("FluentSystemIcons", '\uF4A6').Size(16),
+            Label().Text("Verified").Style(UILabelStyle.BodyStrong));
+```
+
+<Note>
+The `IUIButton` and `IUIDropDownButton` components have their own `.Icon(fontName, glyph)` fluent methods, so you do not need to create a standalone `IUIIcon` to add an icon to a button.
+</Note>

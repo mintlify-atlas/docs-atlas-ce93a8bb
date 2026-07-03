@@ -1,0 +1,225 @@
+---
+title: "Create a CLI Tool Extension for DevToys"
+sidebarTitle: "CLI Tool"
+description: "Learn how to implement ICommandLineTool with CommandNameAttribute and CommandLineOptionAttribute to expose your DevToys tool through the command-line interface."
+---
+
+DevToys ships a companion CLI executable (`devtoys.cli`) that exposes tools as sub-commands. Every `ICommandLineTool` export in an extension becomes a first-class command available from the terminal, complete with typed options, help text, and proper exit codes. The CLI uses the same extension discovery mechanism as the GUI app, so a single `.devtoys` package can power both experiences.
+
+<Steps>
+
+### Create or reuse a class library
+
+If you are adding CLI support to an existing extension, skip this step. Otherwise, create a new .NET `net8.0` class library and add the `DevToys.Api` reference exactly as described in the [GUI Tool guide](/extensions/create-gui-tool).
+
+```bash
+dotnet new classlib -n MyDevToysExtension -f net8.0
+cd MyDevToysExtension
+dotnet add package DevToys.Api
+```
+
+### Implement ICommandLineTool
+
+Create a class that implements `ICommandLineTool`. The single required method is:
+
+```csharp
+ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken);
+```
+
+`InvokeAsync` receives an `ILogger` for telemetry and a `CancellationToken` that is cancelled when the user interrupts the process. It must return an integer **exit code** (0 for success, non-zero for failure).
+
+### Decorate with [Export] and [CommandName]
+
+Apply the MEF export attribute and the `[CommandName]` metadata attribute:
+
+```csharp
+[Export(typeof(ICommandLineTool))]
+[Name("MyExtension.Base64CLI")]
+[CommandName(
+    Name = "base64",
+    Alias = "b64",
+    DescriptionResourceName = nameof(Strings.Base64Description),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings")]
+internal sealed class Base64CommandLineTool : ICommandLineTool
+{
+    public ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken)
+    {
+        // implementation
+        return ValueTask.FromResult(0);
+    }
+}
+```
+
+`CommandName` properties:
+
+| Property | Required | Description |
+|---|---|---|
+| `Name` | Yes | The primary sub-command name (e.g., `base64`). Invoked as `devtoys.cli base64 ...`. |
+| `Alias` | No | A short alias (e.g., `b64`). Invoked as `devtoys.cli b64 ...`. |
+| `DescriptionResourceName` | Yes | Resource key for the command's help description. |
+| `ResourceManagerBaseName` | Yes | The base name of the resource manager that contains the description string. |
+
+### Add [CommandLineOption] properties
+
+Each option the command accepts is a property decorated with `[CommandLineOption]`. The property type determines the value type that the CLI parser will coerce — `bool`, `string`, `FileInfo`, `int`, and other common types are all supported.
+
+```csharp
+[CommandLineOption(
+    Name = "file",
+    Alias = "f",
+    IsRequired = true,
+    DescriptionResourceName = nameof(Strings.FileOptionDescription))]
+internal FileInfo? File { get; set; }
+
+[CommandLineOption(
+    Name = "utf8",
+    DescriptionResourceName = nameof(Strings.Utf8OptionDescription))]
+internal bool Utf8 { get; set; } = true; // default value
+```
+
+`CommandLineOption` properties (in addition to `Name`, `Alias`, and `DescriptionResourceName` inherited from `CommandNameAttribute`):
+
+| Property | Type | Description |
+|---|---|---|
+| `Name` | `string` | Long option name, e.g., `"file"` → `--file <value>` |
+| `Alias` | `string` | Short alias, e.g., `"f"` → `-f <value>` |
+| `IsRequired` | `bool` | When `true`, the CLI shows an error if the option is not provided. Default is `false`. |
+| `DescriptionResourceName` | `string` | Resource key for the option's help description. |
+
+### Return an exit code from InvokeAsync
+
+The integer returned from `InvokeAsync` becomes the process exit code. Use `0` for success and a non-zero value for any error condition. The CLI framework propagates this value to the shell.
+
+```csharp
+public async ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken)
+{
+    if (File is null || !File.Exists)
+    {
+        Console.Error.WriteLine("File not found.");
+        return 1;
+    }
+
+    // ... process the file ...
+    return 0;
+}
+```
+
+</Steps>
+
+## Full Working Example
+
+The following is a complete base64 encode/decode CLI tool, mirroring the canonical example from the `ICommandLineTool` XML documentation:
+
+```csharp
+using System.ComponentModel.Composition;
+using System.Text;
+using DevToys.Api;
+using Microsoft.Extensions.Logging;
+
+[Export(typeof(ICommandLineTool))]
+[Name("MyExtension.Base64CLI")]
+[CommandName(
+    Name = "base64",
+    Alias = "b64",
+    DescriptionResourceName = nameof(Strings.Base64Description),
+    ResourceManagerBaseName = "MyDevToysExtension.Strings")]
+internal sealed class Base64CommandLineTool : ICommandLineTool
+{
+    [CommandLineOption(
+        Name = "file",
+        Alias = "f",
+        IsRequired = true,
+        DescriptionResourceName = nameof(Strings.FileOptionDescription))]
+    internal FileInfo? File { get; set; }
+
+    [CommandLineOption(
+        Name = "utf8",
+        DescriptionResourceName = nameof(Strings.Utf8OptionDescription))]
+    internal bool Utf8 { get; set; } = true;
+
+    public async ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken)
+    {
+        if (File is null || !File.Exists)
+        {
+            Console.Error.WriteLine($"File '{File?.FullName}' does not exist.");
+            return 1;
+        }
+
+        Encoding encoding = Utf8 ? Encoding.UTF8 : Encoding.ASCII;
+
+        // Show a progress bar for potentially large files.
+        using var progress = new ConsoleProgressBar();
+
+        byte[] bytes = await System.IO.File.ReadAllBytesAsync(File.FullName, cancellationToken);
+        progress.Report(50);
+
+        string encoded = Convert.ToBase64String(bytes);
+        progress.Report(100);
+
+        Console.WriteLine(encoded);
+        return 0;
+    }
+}
+```
+
+## ConsoleProgressBar
+
+For long-running CLI operations, the `ConsoleProgressBar` class provides an animated in-place progress indicator. It implements `IProgress<double>` and `IDisposable`. Call `Report(value)` with a percentage between 0 and 100. The bar is automatically suppressed when standard output is redirected to a file.
+
+```csharp
+using var progress = new ConsoleProgressBar();
+
+for (int i = 0; i <= 100; i += 10)
+{
+    await DoWorkChunkAsync();
+    progress.Report(i);
+}
+// Dispose clears the bar from the console line.
+```
+
+## Dual GUI + CLI Extension
+
+A single extension assembly can export **both** an `IGuiTool` and an `ICommandLineTool` for the same feature. This is the recommended pattern — users get a visual tool in the desktop app and a scriptable command in the terminal, without duplicating business logic.
+
+```csharp
+// Shared logic
+internal static class Base64Logic
+{
+    internal static string Encode(byte[] bytes) => Convert.ToBase64String(bytes);
+}
+
+// GUI tool uses Base64Logic
+[Export(typeof(IGuiTool))]
+[Name("MyExtension.Base64GUI")]
+// ... ToolDisplayInformation etc ...
+internal sealed class Base64GuiTool : IGuiTool { /* ... */ }
+
+// CLI tool uses the same Base64Logic
+[Export(typeof(ICommandLineTool))]
+[Name("MyExtension.Base64CLI")]
+[CommandName(Name = "base64", Alias = "b64", ...)]
+internal sealed class Base64CommandLineTool : ICommandLineTool { /* ... */ }
+```
+
+## Logging Guidelines
+
+The `ILogger` passed to `InvokeAsync` sends telemetry to DevToys. Follow these rules to protect user privacy:
+
+<Tip>
+**DO** log errors, performance timings, and relevant system information to help diagnose issues.
+</Tip>
+
+<Warning>
+**DO NOT** log anything the user typed or pasted into the tool. User input may contain passwords, tokens, or other personal information.
+</Warning>
+
+```csharp
+// ✅ Good — logs a duration metric
+logger.LogInformation("Encoding completed in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+
+// ✅ Good — logs a system compatibility note
+logger.LogWarning("Large file detected; memory usage may be high on 32-bit systems.");
+
+// ❌ Bad — logs actual user data
+logger.LogDebug("Input text: {InputText}", userProvidedText);
+```

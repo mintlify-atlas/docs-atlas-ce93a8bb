@@ -1,0 +1,148 @@
+---
+title: "DevToys: Swiss Army Knife for Developers"
+sidebarTitle: "Introduction"
+description: "DevToys bundles 30+ developer utilities into a cross-platform desktop app with Smart Detection and an open extension SDK for building custom tools."
+---
+
+DevToys is a free, open-source desktop application that bundles over 30 developer utilities into a single, offline-capable app. Instead of opening a dozen browser tabs to decode a JWT, format a JSON blob, or generate a UUID, DevToys puts every common micro-task one click away — with no data leaving your machine. Its **Smart Detection** system watches the clipboard and automatically routes whatever you copied to the most relevant tool, so the right tool is already pre-filled before you even switch windows.
+
+## Usage Modes
+
+DevToys ships in two complementary forms that share the same underlying tool ecosystem.
+
+<CardGroup cols={2}>
+  <Card title="Desktop GUI" icon="desktop">
+    The primary experience. A native desktop app for Windows, macOS, and Linux with a searchable sidebar, compact overlay mode, and full mouse/keyboard navigation.
+  </Card>
+  <Card title="DevToys CLI" icon="terminal">
+    A standalone command-line executable for the same three platforms. Each tool that implements `ICommandLineTool` is exposed as a sub-command, making DevToys scriptable in CI pipelines and shell workflows.
+  </Card>
+</CardGroup>
+
+### Desktop GUI
+
+The GUI app is built on a platform-native shell that embeds a Blazor WebView for the tool canvas:
+
+- **Windows 10/11** — WinUI / WPF host with Microsoft WebView2 (Chromium-based)
+- **macOS 12+** — AppKit host with WebKit (Safari engine)
+- **Linux** — GTK4 host with WebKitGTK
+
+All three platforms render the same Blazor component tree, so tools look and behave identically across operating systems.
+
+### DevToys CLI
+
+The CLI binary (`DevToys.CLI`) is a self-contained executable that requires no GUI runtime. Tools opt in to CLI support by exporting a class that implements `ICommandLineTool`:
+
+```csharp
+[Export(typeof(ICommandLineTool))]
+[Name("Base64 Encode / Decoder")]
+[CommandName(
+    Name = "base64",
+    Alias = "b64",
+    DescriptionResourceName = nameof(Strings.Base64Description),
+    ResourceManagerBaseName = "MyProject.Strings")]
+internal sealed class Base64CommandLineTool : ICommandLineTool
+{
+    [CommandLineOption(Name = "file", Alias = "f", IsRequired = true,
+        DescriptionResourceName = nameof(Strings.Base64FileOptionDescription))]
+    internal FileInfo? File { get; set; }
+
+    public ValueTask<int> InvokeAsync(ILogger logger, CancellationToken cancellationToken)
+    {
+        // tool logic here
+        return ValueTask.FromResult(0);
+    }
+}
+```
+
+## Smart Detection
+
+Smart Detection is DevToys's signature quality-of-life feature. Whenever you copy something to your clipboard, the app silently runs a chain of lightweight detectors in the background. Each detector implements `IDataTypeDetector` and reports whether the clipboard content matches its expected format within a 2-second timeout. The first tool whose accepted data types match the detected type is highlighted in the sidebar and pre-populated with your data.
+
+The following data type names are built in to the detection pipeline (defined in `PredefinedCommonDataTypeNames`):
+
+| Constant | Value | What triggers it |
+|---|---|---|
+| `Text` | `text` | Any plain text |
+| `Json` | `json` | Valid JSON object |
+| `JsonArray` | `jsonArray` | Valid JSON array |
+| `Xml` | `xml` | Valid XML document |
+| `Xsd` | `xsd` | XML Schema Definition |
+| `Base64Text` | `base64Text` | Base64-encoded text |
+| `Base64Image` | `base64Image` | Base64-encoded image data |
+| `Image` | `image` | Raw image data |
+| `ImageFile` | `imageFile` | Image file path |
+| `File` | `file` | Single file path |
+| `Files` | `files` | Multiple file paths |
+| `GZip` | `gzip` | GZip-compressed data |
+| `Date` | `date` | Parseable date/timestamp |
+
+Extensions can register their own detectors and inherit from a base type (for example, a `jwt-header` detector can declare `json` as its base, so the JWT detector only runs when the JSON detector already succeeded).
+
+## Tool Categories
+
+All built-in tools (and most extension tools) are organized into seven categories, matching the constants in `PredefinedCommonToolGroupNames`:
+
+| Category | Constant | Description |
+|---|---|---|
+| **Converters** | `Converters` | Transform data between formats (JSON ↔ YAML, number bases, dates) |
+| **Encoders / Decoders** | `EncodersDecoders` | Encode and decode data (Base64, URL, HTML, JWT, QR codes, GZip) |
+| **Formatters** | `Formatters` | Pretty-print or minify structured documents (JSON, SQL, XML) |
+| **Generators** | `Generators` | Produce new data on demand (UUIDs, passwords, hashes, Lorem Ipsum) |
+| **Graphic** | `Graphic` | Image utilities (compressor, format converter, color blindness simulator) |
+| **Testers** | `Testers` | Validate and query data (RegEx, JSONPath, XML validator) |
+| **Text** | `Text` | Text manipulation (diff, Markdown preview, analyzer, list sorter) |
+
+## Extension Model
+
+DevToys uses the **Managed Extensibility Framework (MEF)** as its plugin system. A tool is any class decorated with `[Export(typeof(IGuiTool))]` or `[Export(typeof(ICommandLineTool))]`. The app discovers tools at startup by scanning MEF catalogs, so extensions require zero registration steps beyond dropping the assembly in the right location.
+
+Extensions are packaged as **`.devtoys` NuGet packages** — standard `.nupkg` files with a special file extension. The built-in Extensions Manager can install, update, and remove them directly from within the app.
+
+A minimal GUI tool looks like this:
+
+```csharp
+[Export(typeof(IGuiTool))]
+[Name("My Custom Tool")]
+[ToolDisplayInformation(
+    IconFontName = "FluentSystemIcons",
+    IconGlyph = '\uF000',
+    GroupName = PredefinedCommonToolGroupNames.Converters,
+    ResourceManagerAssemblyIdentifier = nameof(MyAssemblyIdentifier),
+    ResourceManagerBaseName = "MyExtension.Strings",
+    ShortDisplayTitleResourceName = nameof(Strings.ShortTitle),
+    DescriptionResourceName = nameof(Strings.Description))]
+internal sealed class MyGuiTool : IGuiTool
+{
+    public UIToolView View
+        => new UIToolView(/* build your UI here */);
+
+    public void OnDataReceived(string dataTypeName, object? parsedData)
+    {
+        // handle Smart Detection data
+    }
+}
+```
+
+## Platform Support
+
+| Platform | Minimum Version | UI Stack |
+|---|---|---|
+| Windows | Windows 10 (version 1903 / build 18362) | WinUI / WPF + Microsoft WebView2 |
+| macOS | macOS 12.0 (Monterey) | AppKit + WebKit |
+| Linux | Any distro with GTK4 + WebKitGTK | GTK4 + WebKitGTK |
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get DevToys on Windows, macOS, or Linux using the package manager of your choice.
+  </Card>
+  <Card title="Built-in Tools" icon="wrench" href="/built-in-tools">
+    Explore all 30+ tools that ship with DevToys out of the box.
+  </Card>
+  <Card title="Extensions Overview" icon="puzzle-piece" href="/extensions/overview">
+    Learn how to find, install, and manage DevToys extensions.
+  </Card>
+  <Card title="Components Overview" icon="cube" href="/components/overview">
+    Browse the UI components available for building your own tools.
+  </Card>
+</CardGroup>

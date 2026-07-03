@@ -1,0 +1,230 @@
+---
+title: "Install DevToys on Windows, macOS, and Linux"
+sidebarTitle: "Installation"
+description: "Download and install DevToys on Windows via Microsoft Store or WinGet, on macOS via the Mac App Store or Homebrew, and on Linux via Flathub or APT."
+---
+
+DevToys is available as a native desktop application for Windows, macOS, and Linux. Choose the installation method that fits your workflow — every option installs the same full-featured app with all 30+ built-in tools included. The installer for each platform bundles the .NET 8.0 runtime, so no separate .NET installation is required for end users.
+
+<Note>
+  The .NET 8.0 runtime is bundled inside every DevToys installer. End users do not need to install .NET separately before running DevToys.
+</Note>
+
+## Installing the Desktop App
+
+<Tabs>
+  <Tab title="Windows">
+    DevToys supports **Windows 10 version 1903 (build 18362) or later** and Windows 11.
+
+    **Microsoft Store (recommended)**
+
+    The easiest way to install DevToys on Windows and receive automatic updates.
+
+    1. Open the **Microsoft Store** app.
+    2. Search for **DevToys**.
+    3. Click **Get** to install.
+
+    Alternatively, open this link directly in your browser:
+    ```
+    ms-windows-store://pdp/?productid=9PGCV4V3BK4W
+    ```
+
+    ---
+
+    **WinGet**
+
+    Install from the command line using the Windows Package Manager:
+
+    ```bash
+    winget install DevToys
+    ```
+
+    ---
+
+    **Chocolatey**
+
+    If you use the Chocolatey package manager:
+
+    ```bash
+    choco install devtoys
+    ```
+
+    ---
+
+    **Direct Installer (GitHub Releases)**
+
+    Download the `.exe` or `.msix` installer directly from the [GitHub Releases page](https://github.com/DevToys-app/DevToys/releases). Run the installer and follow the on-screen prompts.
+
+    <Tip>
+      The Microsoft Store version updates automatically in the background. The WinGet and Chocolatey methods let you script upgrades as part of a machine setup playbook.
+    </Tip>
+  </Tab>
+
+  <Tab title="macOS">
+    DevToys requires **macOS 12.0 (Monterey) or later**.
+
+    **Mac App Store (recommended)**
+
+    1. Open the **App Store** app on your Mac.
+    2. Search for **DevToys**.
+    3. Click **Get** to download and install.
+
+    ---
+
+    **Homebrew**
+
+    Install with the [Homebrew](https://brew.sh) package manager:
+
+    ```bash
+    brew install --cask devtoys
+    ```
+
+    To upgrade later:
+
+    ```bash
+    brew upgrade --cask devtoys
+    ```
+
+    ---
+
+    **Direct .dmg (GitHub Releases)**
+
+    Download the `.dmg` disk image from the [GitHub Releases page](https://github.com/DevToys-app/DevToys/releases):
+
+    <Steps>
+      <Step title="Download the .dmg">
+        Go to the latest release on GitHub and download the `.dmg` file for macOS.
+      </Step>
+      <Step title="Open the disk image">
+        Double-click the downloaded `.dmg` to mount it.
+      </Step>
+      <Step title="Drag to Applications">
+        Drag the DevToys app icon into your **Applications** folder.
+      </Step>
+      <Step title="Launch DevToys">
+        Open DevToys from Launchpad or Spotlight (`⌘ Space` → type **DevToys**).
+      </Step>
+    </Steps>
+
+    <Tip>
+      On first launch macOS may show a Gatekeeper warning because the `.dmg` is downloaded from the internet. Right-click the app icon → **Open** → **Open** to bypass it the first time.
+    </Tip>
+  </Tab>
+
+  <Tab title="Linux">
+    DevToys on Linux requires **GTK4** and **WebKitGTK**. Most mainstream distributions (Ubuntu, Fedora, Debian, Arch) ship with these libraries pre-installed or available in their default repositories.
+
+    **Flathub / Flatpak (recommended)**
+
+    The Flatpak release runs in a sandboxed environment and works on almost every Linux distribution.
+
+    ```bash
+    flatpak install flathub com.devtoys.DevToys
+    ```
+
+    To run after installation:
+
+    ```bash
+    flatpak run com.devtoys.DevToys
+    ```
+
+    To update:
+
+    ```bash
+    flatpak update com.devtoys.DevToys
+    ```
+
+    ---
+
+    **AUR (Arch Linux / Manjaro)**
+
+    Install from the Arch User Repository using your preferred AUR helper:
+
+    ```bash
+    # using yay
+    yay -S devtoys
+
+    # using paru
+    paru -S devtoys
+    ```
+
+    ---
+
+    **Tarball (GitHub Releases)**
+
+    A self-contained `.tar.gz` archive is published on the [GitHub Releases page](https://github.com/DevToys-app/DevToys/releases) for distributions not covered by the methods above.
+
+    <Steps>
+      <Step title="Download the archive">
+        Download the Linux `.tar.gz` from the latest GitHub Release.
+      </Step>
+      <Step title="Extract">
+        ```bash
+        tar -xzf devtoys-linux-x64.tar.gz -C ~/Applications/devtoys
+        ```
+      </Step>
+      <Step title="Make the binary executable">
+        ```bash
+        chmod +x ~/Applications/devtoys/DevToys
+        ```
+      </Step>
+      <Step title="Run DevToys">
+        ```bash
+        ~/Applications/devtoys/DevToys
+        ```
+        Optionally, create a `.desktop` file or symlink the binary to a directory on your `$PATH`.
+      </Step>
+    </Steps>
+
+    <Note>
+      If GTK4 or WebKitGTK are not present on your system, install them first. On Debian/Ubuntu-based distros:
+      ```bash
+      sudo apt install libgtk-4-1 libwebkitgtk-6.0-4
+      ```
+    </Note>
+  </Tab>
+</Tabs>
+
+## Installing DevToys CLI
+
+DevToys CLI (`DevToys.CLI`) is a standalone command-line executable that exposes every CLI-enabled tool as a sub-command. It is published as a self-contained binary for all three platforms alongside the desktop app on the [GitHub Releases page](https://github.com/DevToys-app/DevToys/releases).
+
+Download the archive that matches your platform and architecture, extract it, and add the directory to your `$PATH` (or `%PATH%` on Windows):
+
+```bash
+# Example: verify the CLI is available
+devtoys --help
+```
+
+Each tool that supports CLI mode is listed as a sub-command. For example:
+
+```bash
+# Encode a string with Base64
+devtoys base64 --file ./data.txt
+
+# or using the alias
+devtoys b64 --file ./data.txt
+```
+
+## Verifying Installation
+
+After installing, confirm DevToys is working correctly with these steps:
+
+<Steps>
+  <Step title="Launch the application">
+    Open DevToys from the Start Menu (Windows), Launchpad (macOS), or your application launcher (Linux).
+  </Step>
+  <Step title="Check the tool list">
+    The left sidebar should display all seven tool categories — Converters, Encoders/Decoders, Formatters, Generators, Graphic, Testers, and Text — each containing several tools.
+  </Step>
+  <Step title="Test Smart Detection">
+    Copy a JSON snippet to your clipboard (for example `{"hello": "world"}`). DevToys should automatically highlight the **JSON** tool in the sidebar and pre-fill the input field.
+  </Step>
+  <Step title="Verify the CLI (optional)">
+    If you installed DevToys CLI, open a terminal and run:
+    ```bash
+    devtoys --version
+    ```
+    The version number should print without any errors.
+  </Step>
+</Steps>
