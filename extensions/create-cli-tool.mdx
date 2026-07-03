@@ -1,7 +1,7 @@
 ---
-title: "Create a CLI Tool Extension for DevToys"
+title: "Create a DevToys CLI Tool Extension with ICommandLineTool"
 sidebarTitle: "CLI Tool"
-description: "Learn how to implement ICommandLineTool with CommandNameAttribute and CommandLineOptionAttribute to expose your DevToys tool through the command-line interface."
+description: "Implement ICommandLineTool with CommandNameAttribute and CommandLineOptionAttribute to expose your DevToys extension through the CLI."
 ---
 
 DevToys ships a companion CLI executable (`devtoys.cli`) that exposes tools as sub-commands. Every `ICommandLineTool` export in an extension becomes a first-class command available from the terminal, complete with typed options, help text, and proper exit codes. The CLI uses the same extension discovery mechanism as the GUI app, so a single `.devtoys` package can power both experiences.

@@ -1,7 +1,7 @@
 ---
-title: "Persist Tool Settings with ISettingsProvider"
+title: "Persist DevToys Extension Settings with ISettingsProvider"
 sidebarTitle: "Settings"
-description: "Use SettingDefinition and ISettingsProvider to persist and retrieve user-configurable settings in your DevToys extension across app restarts."
+description: "Use SettingDefinition and ISettingsProvider to persist and retrieve user preferences in your DevToys extension reliably across app restarts."
 ---
 
 DevToys provides a first-class settings persistence API through `ISettingsProvider`. Any value your tool needs to survive across sessions — a preferred encoding format, an output toggle, a remembered file path — can be stored with a single method call and retrieved just as easily. Settings are stored locally per-user and survive app updates.

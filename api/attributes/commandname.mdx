@@ -1,7 +1,7 @@
 ---
-title: "CommandNameAttribute and CommandLineOptionAttribute Reference"
+title: "CommandNameAttribute and CommandLineOptionAttribute"
 sidebarTitle: "CommandName"
-description: "CommandNameAttribute declares the CLI command name and alias for ICommandLineTool. CommandLineOptionAttribute defines individual options with name, alias, and IsRequired flag."
+description: "CommandNameAttribute declares the command name and alias for an ICommandLineTool. CommandLineOptionAttribute binds properties to CLI option flags."
 ---
 
 DevToys exposes a command-line interface alongside its GUI. Two attributes — `CommandNameAttribute` and `CommandLineOptionAttribute` — wire up an `ICommandLineTool` implementation to that CLI surface. `CommandNameAttribute` defines the top-level command (e.g. `devtoys base64`), while `CommandLineOptionAttribute` is applied to properties to declare individual `--option` flags.

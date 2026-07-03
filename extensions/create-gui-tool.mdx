@@ -1,7 +1,7 @@
 ---
-title: "Create a GUI Tool Extension for DevToys"
+title: "Create a DevToys GUI Tool Extension Using IGuiTool"
 sidebarTitle: "GUI Tool"
-description: "Learn how to implement IGuiTool, declare ToolDisplayInformationAttribute metadata, build a UIToolView, and wire Smart Detection for a DevToys GUI extension."
+description: "Implement IGuiTool, declare ToolDisplayInformationAttribute metadata, build a UIToolView, and wire Smart Detection in a DevToys GUI extension."
 ---
 
 A GUI tool is the most common kind of DevToys extension. It appears as an entry in the sidebar, renders an interactive view inside the app window, and can optionally receive data routed to it by the Smart Detection engine. The core contract is the `IGuiTool` interface, which has just two members: a `View` property that returns the root `UIToolView`, and an `OnDataReceived` callback for Smart Detection integration.

@@ -1,7 +1,7 @@
 ---
-title: "IResourceAssemblyIdentifier Interface — DevToys Extension SDK"
+title: "IResourceAssemblyIdentifier — DevToys Extension SDK"
 sidebarTitle: "IResourceAssemblyIdentifier"
-description: "IResourceAssemblyIdentifier exposes the fonts and resource managers for a DevToys extension assembly. Every extension must export exactly one implementation."
+description: "IResourceAssemblyIdentifier links a DevToys extension to its string resources and custom fonts. Each assembly must export exactly one implementation."
 ---
 
 `IResourceAssemblyIdentifier` acts as the entry-point through which DevToys locates the string resources (`.resx` / `ResourceManager`) and custom fonts bundled inside your extension assembly. Every extension assembly must export **exactly one** implementation. The `[Name]` you give it is the string you reference in the `ResourceManagerAssemblyIdentifier` property of every `[ToolDisplayInformation]` attribute in that assembly — forming the link between your tool metadata and its localized strings.
@@ -50,9 +50,9 @@ public sealed class FontDefinition : IDisposable
 Most extensions that use a built-in icon font (such as `FluentSystemIcons`) do not need to provide custom fonts. Return an empty array:
 
 ```csharp
-[Export(typeof(IResourceAssemblyIdentifier))]
-[Name(nameof(MyResourceManagerAssemblyIdentifier))]
-public sealed class MyResourceManagerAssemblyIdentifier : IResourceAssemblyIdentifier
+[Export(typeof(MyResourceAssemblyIdentifier))]
+[Name(nameof(MyResourceAssemblyIdentifier))]
+internal sealed class MyResourceAssemblyIdentifier : IResourceAssemblyIdentifier
 {
     public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
     {
@@ -70,9 +70,9 @@ public sealed class MyResourceManagerAssemblyIdentifier : IResourceAssemblyIdent
 If your tool uses a custom icon glyph font or a specialized display font, embed the `.ttf` or `.otf` file in your project and stream it at runtime:
 
 ```csharp
-[Export(typeof(IResourceAssemblyIdentifier))]
-[Name(nameof(MyResourceManagerAssemblyIdentifier))]
-public sealed class MyResourceManagerAssemblyIdentifier : IResourceAssemblyIdentifier
+[Export(typeof(MyResourceAssemblyIdentifier))]
+[Name(nameof(MyResourceAssemblyIdentifier))]
+internal sealed class MyResourceAssemblyIdentifier : IResourceAssemblyIdentifier
 {
     public ValueTask<FontDefinition[]> GetFontDefinitionsAsync()
     {
@@ -102,7 +102,7 @@ Then reference the font name in your tool attribute:
 [ToolDisplayInformation(
     IconFontName = "MyCustomIcons",   // matches FontDefinition.FontFamily above
     IconGlyph = '\uE001',
-    ResourceManagerAssemblyIdentifier = nameof(MyResourceManagerAssemblyIdentifier),
+    ResourceManagerAssemblyIdentifier = nameof(MyResourceAssemblyIdentifier),
     ResourceManagerBaseName = "MyProject.Strings",
     ShortDisplayTitleResourceName = nameof(MyProject.Strings.ShortDisplayTitle))]
 ```
@@ -112,9 +112,9 @@ Then reference the font name in your tool attribute:
 The diagram below shows how the three values must align:
 
 ```
-[Name(nameof(MyResourceManagerAssemblyIdentifier))]   ← on IResourceAssemblyIdentifier
+[Name(nameof(MyResourceAssemblyIdentifier))]          ← on IResourceAssemblyIdentifier
         ↕ must match
-ResourceManagerAssemblyIdentifier = nameof(MyResourceManagerAssemblyIdentifier)  ← in [ToolDisplayInformation]
+ResourceManagerAssemblyIdentifier = nameof(MyResourceAssemblyIdentifier)         ← in [ToolDisplayInformation]
         ↕ resolves
 ResourceManagerBaseName = "MyProject.Strings"         ← fully-qualified resource base name
 ```

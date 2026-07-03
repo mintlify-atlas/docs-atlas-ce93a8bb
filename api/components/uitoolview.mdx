@@ -1,7 +1,7 @@
 ---
 title: "UIToolView — Root Container for DevToys Tool UIs"
 sidebarTitle: "UIToolView"
-description: "UIToolView is the root container returned by IGuiTool.View. It holds the root IUIElement, controls scrollability, and supports modal dialogs via OpenDialogAsync."
+description: "UIToolView is the root UI container for IGuiTool. It holds the root IUIElement, controls scrollability, and manages modal dialogs via OpenDialogAsync."
 ---
 
 `UIToolView` is the root container that every `IGuiTool` implementation returns from its `View` property. It wraps a single `IUIElement` root (typically a layout component such as `IUIStack` or `IUIGrid`), controls whether the tool's content is scrollable, and manages the lifecycle of modal dialogs. The DevToys rendering engine mounts the `UIToolView` directly into the tool panel when the user navigates to a tool.

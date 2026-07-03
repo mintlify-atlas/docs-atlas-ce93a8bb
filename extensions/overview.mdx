@@ -1,7 +1,7 @@
 ---
 title: "DevToys Extension SDK: Build Custom Developer Tools"
 sidebarTitle: "Overview"
-description: "The DevToys extension SDK lets you build GUI and CLI tools using IGuiTool and ICommandLineTool, packaged as .devtoys NuGet files and installed via the Extensions Manager."
+description: "Build GUI and CLI tools for DevToys using IGuiTool and ICommandLineTool. Package them as .devtoys files and install via the Extensions Manager."
 ---
 
 DevToys is built on an open, MEF-based extensibility model. Any developer can ship a `.devtoys` file — a standard NuGet package renamed with that extension — and DevToys will load it automatically at startup alongside the built-in tools. Extensions can add GUI tools, CLI tools, Smart Detection detectors, custom tool groups, and more, all through the same `DevToys.Api` contracts used by the app itself.

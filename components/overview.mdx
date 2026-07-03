@@ -1,7 +1,7 @@
 ---
 title: "DevToys GUI Components: Building Tool UIs with the API"
 sidebarTitle: "Overview"
-description: "Every DevToys tool UI is built from IUIElement components. Use the GUI.* static factory methods to compose layouts, inputs, labels, and interactive controls."
+description: "DevToys tool UIs are built from IUIElement components. Use GUI.* static factory methods to compose layouts, inputs, labels, and interactive controls."
 ---
 
 Every DevToys extension tool that exposes a GUI returns a `UIToolView` from its `View` property. That view contains a tree of `IUIElement` objects that DevToys renders natively on each supported platform. The entire component library is accessible through the static `GUI` class in the `DevToys.Api` namespace — a fluent API of factory methods and chainable extension methods that compose a fully-declarative, reactive UI without any XAML or markup files.

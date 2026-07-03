@@ -1,7 +1,7 @@
 ---
 title: "IDataTypeDetector Interface — DevToys Smart Detection SDK"
 sidebarTitle: "IDataTypeDetector"
-description: "IDataTypeDetector lets DevToys detect clipboard data types. Implement TryDetectDataAsync to parse raw data and return a DataDetectionResult for Smart Detection routing."
+description: "IDataTypeDetector identifies clipboard data types in DevToys. Implement TryDetectDataAsync to parse raw data and return a typed DataDetectionResult."
 ---
 
 `IDataTypeDetector` is the interface at the heart of DevToys Smart Detection. When the user copies something to the clipboard, DevToys runs every registered detector in dependency order and routes the detected type to any `IGuiTool` that declared `[AcceptedDataTypeName]` for that type. Implement this interface to teach DevToys how to recognize a new data format — whether that's a JWT token, a color hex string, a URL, or anything else — and optionally parse the raw input into a typed value that gets forwarded to your tool.

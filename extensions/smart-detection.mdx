@@ -1,7 +1,7 @@
 ---
 title: "Smart Detection: Auto-Route Clipboard Data to Tools"
 sidebarTitle: "Smart Detection"
-description: "Implement IDataTypeDetector and use AcceptedDataTypeNameAttribute so DevToys automatically offers your tool when matching data is detected on the clipboard."
+description: "Implement IDataTypeDetector and AcceptedDataTypeNameAttribute so DevToys automatically suggests your tool when matching clipboard data is detected."
 ---
 
 Smart Detection is DevToys' ability to watch the system clipboard and automatically suggest the right tool for whatever the user just copied. When you copy a JSON string, DevToys immediately offers the JSON Formatter. When you copy a Base64 string, the Base64 Decoder lights up. You can plug your own tool into this pipeline by implementing `IDataTypeDetector` and tagging your `IGuiTool` with `[AcceptedDataTypeName]`.

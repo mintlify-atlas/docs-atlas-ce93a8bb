@@ -1,7 +1,7 @@
 ---
 title: "ISettingsProvider Interface — DevToys Extension SDK"
 sidebarTitle: "ISettingsProvider"
-description: "ISettingsProvider lets DevToys extensions read, write, and reset typed user settings with GetSetting, SetSetting, and ResetSetting using a SettingDefinition key."
+description: "ISettingsProvider manages DevToys settings. Use GetSetting, SetSetting, and ResetSetting with a typed SettingDefinition to persist user preferences."
 ---
 
 `ISettingsProvider` is the single interface through which DevToys extensions read and write persistent user preferences. The host injects it via MEF, and your tool interacts with it through strongly-typed `SettingDefinition<T>` keys — no raw string keys, no manual serialization. Settings are persisted across app restarts and, for portable installations, stored in a `.ini` file alongside the executable.

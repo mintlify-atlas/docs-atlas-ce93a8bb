@@ -1,7 +1,7 @@
 ---
-title: "DataTypeNameAttribute and AcceptedDataTypeNameAttribute Reference"
+title: "DataTypeNameAttribute and AcceptedDataTypeNameAttribute"
 sidebarTitle: "DataTypeName"
-description: "DataTypeNameAttribute names a detector's data type. AcceptedDataTypeNameAttribute tells DevToys which data types an IGuiTool accepts for Smart Detection routing."
+description: "DataTypeNameAttribute names an IDataTypeDetector output type. AcceptedDataTypeNameAttribute declares which types an IGuiTool accepts for Smart Detection."
 ---
 
 DevToys' **Smart Detection** system automatically routes clipboard or file data to appropriate tools. Two attributes drive this mechanism: `DataTypeNameAttribute` declares what kind of data an `IDataTypeDetector` can recognise, and `AcceptedDataTypeNameAttribute` declares what named data types an `IGuiTool` is willing to receive. When a detector produces a match, DevToys highlights every tool whose accepted types include that detector's declared name.

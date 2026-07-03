@@ -1,7 +1,7 @@
 ---
-title: "Display Components: Label, InfoBar, ImageViewer, DataGrid, List, Progress"
+title: "Display Components: Label, InfoBar, DataGrid, Progress, Icon"
 sidebarTitle: "Display"
-description: "DevToys display components include Label, InfoBar, ImageViewer, DataGrid, List, ProgressBar, ProgressRing, and Icon for presenting data and feedback in tool UIs."
+description: "DevToys display components — Label, InfoBar, ImageViewer, DataGrid, List, ProgressBar, ProgressRing, and Icon — present data and feedback in tool UIs."
 ---
 
 Display components present information to the user without requiring direct input. They range from simple text labels to full-featured data grids and image viewers. Because all DevToys component properties are reactive, display components update instantly when your code changes their values — making them well suited for showing real-time operation results, progress feedback, and status messages.
@@ -195,7 +195,7 @@ _imageViewer.ManuallyHandleSaveAs("svg", async stream =>
 | `GUI.Cell(uiElement)` | Create a cell wrapping any `IUIElement`. |
 
 <Note>
-`IUIDataGridCell` holds an optional `IUIElement`. Use the `IUIDataGridCell.cs` factory `Cell(string text)` shorthand for plain text cells.
+`IUIDataGridCell` holds an optional `IUIElement`. Use the `GUI.Cell(string text)` shorthand to create a plain text cell backed by a non-wrapping `Label`.
 </Note>
 
 ### Example

@@ -1,7 +1,7 @@
 ---
-title: "DevToys Layout Components API Reference"
+title: "DevToys Layout Components: Stack, Grid, and SplitGrid"
 sidebarTitle: "Layout Components"
-description: "API reference for DevToys layout components: IUIStack, IUIGrid, IUISplitGrid, IUIWrap, IUICard, UISpacing, UIOrientation, and UIGridLength."
+description: "API reference for IUIStack, IUIGrid, IUISplitGrid, IUIWrap, and IUICard layout components in the DevToys SDK, with fluent builder methods and examples."
 ---
 
 Layout components are the structural building blocks of a DevToys tool UI. They do not display content themselves but organise child `IUIElement` instances in space. All layout components are created through static factory methods on the `GUI` class (namespace `DevToys.Api`) and support a fluent builder pattern — each method returns the same instance, allowing chaining.
@@ -115,16 +115,13 @@ A `double` can be implicitly cast to a pixel `UIGridLength`: `(UIGridLength)300.
 Cells are created with `GUI.Cell(...)` and placed into the grid via `.Cells(...)`:
 
 ```csharp
-// Simple placement: row index, column index, optional child
-IUIGridCell Cell(int row, int column, IUIElement? child = null)
-
-// Explicit spans
+// Explicit spans (row, column, rowSpan, columnSpan, optional child)
 IUIGridCell Cell(int row, int column, int rowSpan, int columnSpan, IUIElement? child = null)
 
-// Enum-based placement (safer, compile-time-checked)
+// Enum-based single cell (safer, compile-time-checked)
 IUIGridCell Cell<TRow, TColumn>(TRow row, TColumn column, IUIElement? child = null)
 
-// Enum-based with spans
+// Enum-based with spans (first and last row/column, optional child)
 IUIGridCell Cell<TRow, TColumn>(TRow firstRow, TRow lastRow, TColumn firstColumn, TColumn? lastColumn = default, IUIElement? child = null)
 ```
 
@@ -173,7 +170,7 @@ GUI.Grid("main-grid")
        (Columns.Left,  GUI.Fraction(1)),
        (Columns.Right, GUI.Fraction(1)))
    .Cells(
-       GUI.Cell(Rows.Top, Columns.Left, Columns.Right,
+       GUI.Cell(Rows.Top, Rows.Top, Columns.Left, Columns.Right,
            child: GUI.Label(null, "Header").Style(UILabelStyle.Subtitle)),
        GUI.Cell(Rows.Bottom, Columns.Left,
            child: GUI.MultiLineTextInput("left-input")),
